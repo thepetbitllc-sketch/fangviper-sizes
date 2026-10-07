@@ -3,19 +3,19 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Fang Viper | Size Guide</title>
-  <meta name="description" content="Fang Viper size guide. A 3D fit model with exact garment measurements in centimeters and inches, a chest-based fit finder and a step-by-step measuring guide.">
+  <title>Size Chart | Fangviper</title>
+  <meta name="description" content="Fangviper size chart. A 3D fit model with exact garment measurements in centimeters and inches, and a simple chest-based size finder.">
   <link rel="canonical" href="https://size.fangviper.com/">
   <meta property="og:type" content="website">
-  <meta property="og:site_name" content="Fang Viper">
-  <meta property="og:title" content="Fang Viper | Size Guide">
-  <meta property="og:description" content="Measure once. Order right. Exact sizes in cm and inches.">
-  <meta name="theme-color" content="#050505">
+  <meta property="og:site_name" content="Fangviper">
+  <meta property="og:title" content="Size Chart | Fangviper">
+  <meta property="og:description" content="Exact sizes in cm and inches, on a 3D fit model.">
+  <meta name="theme-color" content="#000000">
   <link rel="icon" type="image/png" href="assets/favicon.png">
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@400;500&display=swap" rel="stylesheet">
   <script type="importmap">
     { "imports": {
         "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
@@ -25,144 +25,116 @@
   <link rel="stylesheet" href="assets/site.css">
 </head>
 <body>
-  <div class="wrap">
-    <header class="bar">
-      <a class="brand" href="https://fangviper.com/?utm_source=fangviper_sizes&amp;utm_medium=referral&amp;utm_campaign=size_guide" aria-label="Fang Viper store">
-        <img src="assets/logo-white.png" alt="" width="589" height="705"><span>Fang Viper</span>
-      </a>
-      <a class="shop" href="https://fangviper.com/?utm_source=fangviper_sizes&amp;utm_medium=referral&amp;utm_campaign=size_guide">Shop</a>
-    </header>
+  <header class="header">
+    <a class="header__logo" href="https://fangviper.com/" aria-label="Fangviper home"><img src="assets/logo-white.png" alt="Fangviper" width="589" height="705"></a>
+    <nav class="header__nav" aria-label="Main">
+      <a href="https://fangviper.com/">Home</a>
+      <a href="https://fangviper.com/collections/all">Shop</a>
+      <a href="https://fangviper.com/pages/contact">Contact</a>
+      <a href="https://fangviper.com/pages/about-us">About Us</a>
+      <a href="https://size.fangviper.com/" aria-current="page">Size Chart</a>
+    </nav>
+    <a class="header__shop" href="https://fangviper.com/collections/all">Shop</a>
+  </header>
 
-    <section class="hero">
-      <p class="hero__kicker rv" style="--i:0">Size guide &middot; <span id="productName">T-Shirt</span></p>
-      <h1 class="rv" style="--i:1">Measure once.<br><em>Order right.</em></h1>
-      <p class="rv" style="--i:2">Discipline is in the details. Turn the 3D fit model, check every measurement in inches or centimeters, and choose your size with confidence.</p>
-      <ul class="proof rv" style="--i:3">
-        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Real garment specs</li>
-        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 8h18v8H3zM7 8v3M11 8v4M15 8v3M19 8v4"/></svg>cm + inches</li>
-        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"/></svg>360&deg; fit model</li>
-      </ul>
+  <main class="page">
+    <section class="intro">
+      <h1>Size chart</h1>
+      <p>Turn the model, pick a size, and read the exact measurements in inches or centimeters.</p>
     </section>
 
-    <div class="controls rv" style="--i:4">
-      <div class="seg" role="group" aria-label="Product">
-        <button type="button" aria-pressed="true">T-Shirt</button>
-      </div>
-      <div class="seg" role="group" aria-label="Units">
-        <button type="button" data-unit="in" aria-pressed="true">in</button>
-        <button type="button" data-unit="cm" aria-pressed="false">cm</button>
-      </div>
-    </div>
-
-    <div class="grid">
-      <div class="card stage rv" style="--i:5">
-        <div class="viewer" id="viewer" aria-label="3D fit model. Drag to rotate.">
-          <div class="stage__top">
-            <span class="stage__tag" id="stageSize">Size M &middot; 3D</span>
-            <div class="cams" role="group" aria-label="Camera">
-              <button type="button" data-cam="0" class="on">Front</button>
-              <button type="button" data-cam="1.5708">Side</button>
-              <button type="button" data-cam="3.1416">Back</button>
-            </div>
-          </div>
-          <div class="tags" id="tags"></div>
-          <div class="hint" id="hint">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 12a9 4 0 0 0 18 0"/><path d="M18 9.5l3 2.5-3.5 1.5"/></svg>
-            Drag to rotate
+    <section class="fit">
+      <div class="viewer" id="viewer" aria-label="3D fit model. Drag to rotate.">
+        <div class="viewer__bar">
+          <span class="viewer__size" id="stageSize">Size M</span>
+          <div class="views" role="group" aria-label="Camera">
+            <button type="button" data-cam="0" class="on">Front</button>
+            <button type="button" data-cam="1.5708">Side</button>
+            <button type="button" data-cam="3.1416">Back</button>
           </div>
         </div>
+        <div class="tags" id="tags"></div>
+        <p class="hint" id="hint">Drag to rotate</p>
       </div>
 
-      <div class="card panel rv" style="--i:6">
-        <div>
-          <h2 class="label">Choose a size</h2>
-          <div class="sizes" id="sizes" role="group" aria-label="Size"></div>
+      <div class="details">
+        <div class="row-head">
+          <h2 id="productName">T-Shirt</h2>
+          <div class="units" role="group" aria-label="Units">
+            <button type="button" data-unit="in" aria-pressed="true">IN</button>
+            <button type="button" data-unit="cm" aria-pressed="false">CM</button>
+          </div>
         </div>
-        <div>
-          <h2 class="label" id="specsLabel">Size M</h2>
-          <div class="specs" id="specs"></div>
-        </div>
+
+        <div class="sizes" id="sizes" role="group" aria-label="Size"></div>
+
+        <p class="small-label" id="specsLabel">Size M</p>
+        <div class="specs" id="specs"></div>
+
         <div class="finder">
-          <h2>Find my size</h2>
-          <p>Measure around the fullest part of your chest, tape level, and enter it below.</p>
+          <h2>Find your size</h2>
+          <p>Measure around the fullest part of your chest, keep the tape level, and enter the number.</p>
           <form id="finder" autocomplete="off">
             <label class="field">
-              <input id="chest" type="number" inputmode="decimal" step="0.1" min="1" placeholder="Chest" aria-label="Your chest measurement">
+              <input id="chest" type="number" inputmode="decimal" step="0.1" min="1" placeholder="Your chest" aria-label="Your chest measurement">
               <span id="chestUnit">in</span>
             </label>
-            <button class="go" type="submit">Find</button>
+            <button class="pill" type="submit">Find my size</button>
           </form>
-          <label class="check"><input type="checkbox" id="relaxed"> I like a relaxed, roomier fit</label>
+          <label class="check"><input type="checkbox" id="relaxed"> I prefer a relaxed fit</label>
           <div class="result" id="result" aria-live="polite">
             <div class="result__size" id="resultSize">M</div>
             <div class="result__txt" id="resultTxt"></div>
           </div>
         </div>
       </div>
-    </div>
+    </section>
 
     <section class="block">
-      <h2 class="label">Full chart</h2>
-      <p class="big">Every size. Every number.</p>
+      <h2>All sizes</h2>
       <div class="tbl-wrap">
         <table>
           <thead>
             <tr>
               <th scope="col">Size</th>
-              <th scope="col">A &middot; Length</th>
+              <th scope="col">Length</th>
               <th scope="col">Width (flat)</th>
-              <th scope="col">C &middot; Sleeve</th>
-              <th scope="col">B &middot; Fits chest</th>
+              <th scope="col">Sleeve</th>
+              <th scope="col">Fits chest</th>
             </tr>
           </thead>
           <tbody id="tbody"></tbody>
         </table>
       </div>
-      <p class="tbl-note" id="tblNote">Measurements are provided by our print partner and may vary by up to 2 in (5 cm).</p>
+      <p class="note" id="tblNote">Measurements may vary by up to 2 in (5 cm).</p>
     </section>
 
     <section class="block">
-      <h2 class="label">How to measure</h2>
-      <p class="big">Three numbers. No guessing.</p>
+      <h2>How to measure</h2>
       <div class="steps">
-        <article class="card step">
-          <div class="step__k">A</div>
-          <h3>Length</h3>
-          <p>Start at the highest point of the shoulder, right next to the collar. Run the tape straight down to the bottom hem.</p>
-        </article>
-        <article class="card step">
-          <div class="step__k">B</div>
-          <h3>Chest &amp; width</h3>
-          <p><strong>Your body:</strong> wrap the tape around the fullest part of your chest and keep it level. <strong>A tee:</strong> lay it flat and measure straight across from one armpit seam to the other.</p>
-        </article>
-        <article class="card step">
-          <div class="step__k">C</div>
-          <h3>Sleeve</h3>
-          <p>Start at the center back of the collar. Follow the shoulder seam out, hold the tape at the shoulder, then continue down to the end of the sleeve.</p>
-        </article>
+        <div>
+          <h3>A &middot; Length</h3>
+          <p>From the highest point of the shoulder, right beside the collar, straight down to the bottom hem.</p>
+        </div>
+        <div>
+          <h3>B &middot; Chest</h3>
+          <p>Around the fullest part of your chest with the tape level. On a tee laid flat, measure straight across from armpit to armpit.</p>
+        </div>
+        <div>
+          <h3>C &middot; Sleeve</h3>
+          <p>From the center back of the collar, along the shoulder seam, then down to the end of the sleeve.</p>
+        </div>
       </div>
-      <div class="card tips">
-        <div><b>Pro move</b>Lay your best-fitting tee flat, measure it, and match the numbers to the chart.</div>
-        <div><b>Between sizes?</b>Go with the larger size for a relaxed fit, or the smaller one for a closer fit.</div>
-        <div><b>Stay honest</b>Measure over a thin shirt or bare skin, breathing normally. No holding your breath.</div>
-      </div>
+      <p class="tip">Between sizes? Go up for a relaxed fit, or down for a closer fit.</p>
     </section>
 
-    <section class="close">
-      <img src="assets/logo-white.png" alt="Fang Viper logo" width="589" height="705">
-      <h2>Fit locked in.<br>Now go to work.</h2>
-      <p>You know your size. Pick the design that matches your goal.</p>
-      <a class="cta" href="https://fangviper.com/collections/all?utm_source=fangviper_sizes&amp;utm_medium=referral&amp;utm_campaign=size_guide">Shop the collection
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.2"/></svg></a>
+    <section class="end">
+      <h2>Motivation you can wear.</h2>
+      <a class="pill" href="https://fangviper.com/collections/all?utm_source=fangviper_sizes&amp;utm_medium=referral&amp;utm_campaign=size_guide">Shop the collection</a>
     </section>
+  </main>
 
-    <footer>
-      <a href="https://fangviper.com/?utm_source=fangviper_sizes&amp;utm_medium=referral&amp;utm_campaign=size_guide">Store</a> &middot;
-      <a href="https://blog.fangviper.com/">Journal</a> &middot;
-      <a href="https://links.fangviper.com/">Links</a><br>
-      &copy; 2026 Fang Viper &middot; Discipline for every goal.
-    </footer>
-  </div>
+  <footer class="footer">&copy; 2026 Fangviper</footer>
 
   <script src="assets/ui.js"></script>
   <script type="module" src="assets/fit3d.js"></script>

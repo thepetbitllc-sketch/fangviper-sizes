@@ -49,7 +49,7 @@
     var u = state.unit, i = state.size;
     var rows = [
       ["A", "Length", "Shoulder by the collar to hem", val("length", i)],
-      ["B", "Fits chest", "Your body, around \u00B7 tee is " + val("width", i) + " " + u + " wide laid flat", chestRange(i)],
+      ["B", "Fits chest", "Your body, measured around. Tee width laid flat: " + val("width", i) + " " + u, chestRange(i)],
       ["C", "Sleeve length", "Back of collar to sleeve end", val("sleeve", i)]
     ];
     $("specs").innerHTML = rows.map(function (r) {
@@ -58,8 +58,8 @@
         '<span class="spec__name">' + r[1] + '<span class="spec__hint">' + r[2] + "</span></span>" +
         '<span class="spec__v">' + r[3] + "<small>" + u + "</small></span></button>";
     }).join("");
-    $("specsLabel").textContent = "Size " + P.sizes[i] + " \u00B7 measurements";
-    $("stageSize").textContent = "Size " + P.sizes[i] + " \u00B7 3D";
+    $("specsLabel").textContent = "Measurements, size " + P.sizes[i];
+    $("stageSize").textContent = "Size " + P.sizes[i];
   }
   function renderTable() {
     $("tbody").innerHTML = P.sizes.map(function (s, i) {

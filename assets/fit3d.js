@@ -27,7 +27,7 @@ box.prepend(renderer.domElement);
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(30, 1, 1, 3000);
-const target = new V3(0, -50, 0);
+const target = new V3(0, -57, 0);
 camera.position.set(Math.sin(0.45) * 265, target.y + 20, Math.cos(0.45) * 265);
 
 const controls = new OrbitControls(camera, renderer.domElement);
@@ -334,7 +334,7 @@ function resize() {
   renderer.setSize(w, h, false);
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
-  const need = 265 * Math.max(1, 0.82 / camera.aspect);
+  const need = Math.max(285, 194 / camera.aspect);   /* fit full height, or full width on narrow screens */
   const off = camera.position.clone().sub(controls.target).setLength(need);
   camera.position.copy(controls.target).add(off);
 }
