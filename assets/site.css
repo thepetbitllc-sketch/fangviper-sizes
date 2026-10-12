@@ -163,3 +163,19 @@ tbody tr.on td:first-child { text-decoration: underline; text-underline-offset: 
 .row-head { gap: 16px; align-items: flex-start; }
 .row-head .units { padding-top: 10px; }
 @media (max-width: 420px) { .products button { font-size: 28px; } }
+
+/* mobile menu (replaces the store nav under 900px) */
+.header__mobile { display: none; justify-self: end; gap: 18px; }
+.header__mobile a { font: 400 18px/1 var(--display); letter-spacing: .02em; color: rgba(255, 255, 255, .6); }
+.header__mobile a[aria-current] { color: #fff; }
+@media (max-width: 900px) { .header__mobile { display: flex; } .header__shop { display: none; } }
+
+/* product care */
+.care { margin-top: clamp(24px, 5vh, 48px); max-width: 760px; }
+.care > h2 { font-size: 32px; margin-bottom: 8px; }
+.care__list { list-style: none; border-top: 1px solid var(--hair); }
+.care__list li { display: grid; grid-template-columns: 44px 1fr; gap: 24px; align-items: start; padding: 26px 0; border-bottom: 1px solid var(--hair); }
+.care__list svg { width: 44px; height: 44px; fill: none; stroke: #fff; stroke-width: 2.2; stroke-linejoin: round; stroke-linecap: round; }
+.care__list svg .fill { fill: #fff; stroke: none; }
+.care__list h3 { font-size: 22px; letter-spacing: .02em; }
+.care__list p { margin-top: 6px; color: var(--mute); }
