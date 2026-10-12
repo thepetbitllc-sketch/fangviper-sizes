@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Size Chart | Fangviper</title>
-  <meta name="description" content="Fangviper size chart. A 3D fit model with exact garment measurements in centimeters and inches, and a simple chest-based size finder.">
+  <meta name="description" content="Fangviper size chart. Exact product measurements in centimeters and inches on a 3D model, plus a simple size finder for tees.">
   <link rel="canonical" href="https://size.fangviper.com/">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Fangviper">
@@ -40,7 +40,7 @@
   <main class="page">
     <section class="intro">
       <h1>Size chart</h1>
-      <p>Turn the model, pick a size, and read the exact measurements in inches or centimeters.</p>
+      <p>Pick a product, turn the model, and read the exact measurements in inches or centimeters.</p>
     </section>
 
     <section class="fit">
@@ -59,7 +59,7 @@
 
       <div class="details">
         <div class="row-head">
-          <h2 id="productName">T-Shirt</h2>
+          <div class="products" id="products" role="group" aria-label="Product"></div>
           <div class="units" role="group" aria-label="Units">
             <button type="button" data-unit="in" aria-pressed="true">IN</button>
             <button type="button" data-unit="cm" aria-pressed="false">CM</button>
@@ -71,7 +71,7 @@
         <p class="small-label" id="specsLabel">Size M</p>
         <div class="specs" id="specs"></div>
 
-        <div class="finder">
+        <div class="finder" id="finderBox">
           <h2>Find your size</h2>
           <p>Measure around the fullest part of your chest, keep the tape level, and enter the number.</p>
           <form id="finder" autocomplete="off">
@@ -91,18 +91,10 @@
     </section>
 
     <section class="block">
-      <h2>All sizes</h2>
+      <h2 id="tableTitle">All sizes</h2>
       <div class="tbl-wrap">
         <table>
-          <thead>
-            <tr>
-              <th scope="col">Size</th>
-              <th scope="col">Length</th>
-              <th scope="col">Width (flat)</th>
-              <th scope="col">Sleeve</th>
-              <th scope="col">Fits chest</th>
-            </tr>
-          </thead>
+          <thead id="thead"></thead>
           <tbody id="tbody"></tbody>
         </table>
       </div>
@@ -111,21 +103,8 @@
 
     <section class="block">
       <h2>How to measure</h2>
-      <div class="steps">
-        <div>
-          <h3>A &middot; Length</h3>
-          <p>From the highest point of the shoulder, right beside the collar, straight down to the bottom hem.</p>
-        </div>
-        <div>
-          <h3>B &middot; Chest</h3>
-          <p>Around the fullest part of your chest with the tape level. On a tee laid flat, measure straight across from armpit to armpit.</p>
-        </div>
-        <div>
-          <h3>C &middot; Sleeve</h3>
-          <p>From the center back of the collar, along the shoulder seam, then down to the end of the sleeve.</p>
-        </div>
-      </div>
-      <p class="tip">Between sizes? Go up for a relaxed fit, or down for a closer fit.</p>
+      <div class="steps" id="steps"></div>
+      <p class="tip" id="tip"></p>
     </section>
 
     <section class="end">

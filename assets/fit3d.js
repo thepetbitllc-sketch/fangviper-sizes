@@ -1,9 +1,8 @@
-/* FANG VIPER size guide: 3D fit model (three.js). Tee is built from the real cm specs of the chosen size. */
+/* Fangviper size chart: 3D models (three.js). Each model is built from the real cm specs of the chosen product and size. */
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 
 const FV = window.FV;
-const P = FV.data;
 const box = document.getElementById("viewer");
 const tagsEl = document.getElementById("tags");
 const hint = document.getElementById("hint");
@@ -61,15 +60,20 @@ const logoTex = new THREE.TextureLoader().load("assets/logo-white.png");
 logoTex.colorSpace = THREE.SRGBColorSpace;
 logoTex.anisotropy = 4;
 
-/* soft floor shadow */
-{
+/* soft floor shadow (added per model) */
+const shadowTex = (() => {
   const c = document.createElement("canvas"); c.width = c.height = 128;
   const g = c.getContext("2d"), gr = g.createRadialGradient(64, 64, 4, 64, 64, 64);
   gr.addColorStop(0, "rgba(0,0,0,.75)"); gr.addColorStop(1, "rgba(0,0,0,0)");
   g.fillStyle = gr; g.fillRect(0, 0, 128, 128);
-  const sh = new THREE.Mesh(new THREE.PlaneGeometry(90, 90), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false }));
-  sh.rotation.x = -Math.PI / 2; sh.position.y = -131.4; scene.add(sh);
+  return new THREE.CanvasTexture(c);
+})();
+function addShadow(group, y, size, stretch) {
+  const sh = new THREE.Mesh(new THREE.PlaneGeometry(size, size), new THREE.MeshBasicMaterial({ map: shadowTex, transparent: true, depthWrite: false }));
+  sh.rotation.x = -Math.PI / 2; sh.position.y = y; sh.scale.x = stretch;
+  group.add(sh);
 }
+
 
 /* ---------- geometry helpers ---------- */
 function sePoint(w, d, t, p) {
@@ -135,7 +139,7 @@ function dot(p, mat) {
 let model = null, meas = {}, builtAt = 0;
 const O = 1.4, PB = 2.2, PT = 2.4, RATIO = 0.68;
 
-function build(i) {
+function buildTee(i) {
   if (model) {
     scene.remove(model);
     model.traverse((o) => { if (o.geometry) o.geometry.dispose(); });
@@ -143,7 +147,7 @@ function build(i) {
   model = new THREE.Group();
   meas = { A: { parts: [] }, B: { parts: [] }, C: { parts: [] } };
 
-  const Wcm = P.width.cm[i], L = P.length.cm[i], S = P.sleeve.cm[i];
+  const P = FV.data, Wcm = P.dims.width.cm[i], L = P.dims.length.cm[i], S = P.dims.sleeve.cm[i];
 
   /* body chest half-width chosen so the tee around it measures exactly 2 x the flat width */
   let lo = 5, hi = 70;
@@ -171,6 +175,7 @@ function build(i) {
   pole.position.y = -113; model.add(pole);
   const base = new THREE.Mesh(new THREE.CylinderGeometry(15, 17, 2.4, 48), mStand);
   base.position.y = -130; model.add(base);
+  addShadow(model, -131.4, 90, 1);
 
   /* tee shell, hem at exactly the garment length below the shoulder */
   const yTop = 0.9, hemY = -L + 0.6, ys = [];
@@ -293,6 +298,97 @@ function build(i) {
   builtAt = performance.now();
 }
 
+/* ---------- duffle bag, built from the real cm specs: A width (end to end), B depth, C height ---------- */
+const mBag = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.82, side: THREE.DoubleSide });
+const mPanel = new THREE.MeshStandardMaterial({ color: 0x2a2a2a, roughness: 0.85, side: THREE.DoubleSide });
+
+function resetModel() {
+  if (model) {
+    scene.remove(model);
+    model.traverse((o) => { if (o.geometry) o.geometry.dispose(); });
+  }
+  model = new THREE.Group();
+  meas = { A: { parts: [] }, B: { parts: [] }, C: { parts: [] } };
+}
+
+function buildBag() {
+  resetModel();
+  const D = FV.data.dims;
+  const L = D.width.cm[0], Rz = D.depth.cm[0] / 2, Ry = D.height.cm[0] / 2, hx = L / 2;
+
+  /* barrel body lying along x */
+  const bodyGeo = new THREE.CylinderGeometry(1, 1, L, 96, 1, true); bodyGeo.rotateZ(Math.PI / 2);
+  const body = new THREE.Mesh(bodyGeo, mBag); body.scale.set(1, Ry, Rz); model.add(body);
+
+  /* round end panels with piping */
+  for (const s of [1, -1]) {
+    const capGeo = new THREE.CircleGeometry(1, 96); capGeo.rotateY(s * Math.PI / 2);
+    const cap = new THREE.Mesh(capGeo, mPanel); cap.scale.set(1, Ry, Rz); cap.position.x = s * hx; model.add(cap);
+    const pipeGeo = new THREE.TorusGeometry(1, 0.03, 8, 128); pipeGeo.rotateY(Math.PI / 2);
+    const pipe = new THREE.Mesh(pipeGeo, mRib); pipe.scale.set(Ry, Ry, Rz); pipe.position.x = s * hx; model.add(pipe);
+  }
+
+  /* zip along the top */
+  const zip = new THREE.Mesh(new THREE.BoxGeometry(L - 5, 0.5, 1.4), mRib); zip.position.y = Ry + 0.05; model.add(zip);
+  const teeth = new THREE.Mesh(new THREE.BoxGeometry(L - 5, 0.3, 0.35), mStand); teeth.position.y = Ry + 0.35; model.add(teeth);
+  const pull = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.35, 3.2), mStand); pull.position.set(hx - 5, Ry + 0.6, 1.4); model.add(pull);
+
+  /* two carry handles that meet in a wrapped grip */
+  const ang = THREE.MathUtils.degToRad(42), ya = Ry * Math.cos(ang), za = Rz * Math.sin(ang);
+  for (const s of [1, -1]) {
+    const pts = [[-7.5, ya, za], [-6.5, ya + 6, za * 0.55], [-2.5, ya + 10.5, za * 0.1], [2.5, ya + 10.5, za * 0.1], [6.5, ya + 6, za * 0.55], [7.5, ya, za]]
+      .map((p) => new V3(p[0], p[1], s * p[2]));
+    model.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts, false, "centripetal"), 60, 0.65, 10), mBag));
+  }
+  const gripGeo = new THREE.CylinderGeometry(1.5, 1.5, 9, 24); gripGeo.rotateZ(Math.PI / 2);
+  const grip = new THREE.Mesh(gripGeo, mRib); grip.position.y = ya + 10.6; model.add(grip);
+
+  /* shoulder strap from the end panels, with a pad */
+  const strapPts = [[-hx + 1.2, Ry * 0.72], [-hx - 1.6, Ry + 10], [-hx + 4, Ry + 24], [0, Ry + 28], [hx - 4, Ry + 24], [hx + 1.6, Ry + 10], [hx - 1.2, Ry * 0.72]]
+    .map((p) => new V3(p[0], p[1], 0));
+  const strap = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(strapPts, false, "centripetal"), 120, 0.45, 8), mBag);
+  strap.scale.z = 4.5; model.add(strap);
+  const pad = new THREE.Mesh(new THREE.BoxGeometry(13, 1.4, 5.2), mRib); pad.position.y = Ry + 28.3; model.add(pad);
+  for (const s of [1, -1]) {
+    const ringGeo = new THREE.TorusGeometry(1.3, 0.28, 8, 24); ringGeo.rotateY(Math.PI / 2);
+    const ring = new THREE.Mesh(ringGeo, mStand); ring.position.set(s * (hx + 0.4), Ry * 0.72, 0); model.add(ring);
+  }
+
+  /* logo print, bent to the barrel */
+  const logoGeo = new THREE.PlaneGeometry(9, 10.8, 1, 24), lp = logoGeo.attributes.position;
+  for (let j = 0; j < lp.count; j++) {
+    const y = lp.getY(j); lp.setZ(j, Rz * Math.sqrt(Math.max(0, 1 - (y / Ry) * (y / Ry))) + 0.12);
+  }
+  model.add(new THREE.Mesh(logoGeo, new THREE.MeshBasicMaterial({ map: logoTex, transparent: true, color: 0xe6e6e6, polygonOffset: true, polygonOffsetFactor: -4, depthWrite: false })));
+
+  addShadow(model, -Ry - 0.05, 60, 1.5);
+
+  /* A: width, end to end along the bottom front */
+  const phi = THREE.MathUtils.degToRad(52), ay = -(Ry + 0.7) * Math.sin(phi), az = (Rz + 0.7) * Math.cos(phi), ptsA = [];
+  for (let k = 0; k <= 8; k++) ptsA.push(new V3(-hx + (L * k) / 8, ay, az));
+  meas.A.parts.push(tube(ptsA, 0.38, false, mMeas.A), dot(ptsA[0], mMeas.A), dot(ptsA[8], mMeas.A));
+  const aMid = new V3(-hx * 0.25, ay, az), aN = new V3(0, -Math.sin(phi), Math.cos(phi));
+  meas.A.anchor = () => aMid; meas.A.normal = aN;
+
+  /* B: depth, straight across the round end; C: height, bottom to top of the same end */
+  const ex = hx + 0.7, ptsB = [], ptsC = [];
+  for (let k = 0; k <= 8; k++) ptsB.push(new V3(ex, 0, -Rz + (2 * Rz * k) / 8));
+  for (let k = 0; k <= 8; k++) ptsC.push(new V3(ex, -Ry + (2 * Ry * k) / 8, 0));
+  meas.B.parts.push(tube(ptsB, 0.38, false, mMeas.B), dot(ptsB[0], mMeas.B), dot(ptsB[8], mMeas.B));
+  meas.C.parts.push(tube(ptsC, 0.38, false, mMeas.C), dot(ptsC[0], mMeas.C), dot(ptsC[8], mMeas.C));
+  const bAt = new V3(ex, 0, Rz * 0.6), cAt = new V3(ex, Ry * 0.6, 0), xN = new V3(1, 0, 0);
+  meas.B.anchor = () => bAt; meas.B.normal = xN;
+  meas.C.anchor = () => cAt; meas.C.normal = xN;
+
+  for (const k in meas) for (const p of meas[k].parts) model.add(p);
+  scene.add(model);
+  builtAt = performance.now();
+}
+
+function build() {
+  if (FV.product === "bag") buildBag(); else buildTee(FV.size);
+}
+
 /* ---------- labels ---------- */
 const tags = {};
 for (const k of ["A", "B", "C"]) {
@@ -327,6 +423,24 @@ document.querySelectorAll("[data-cam]").forEach((btn) => btn.addEventListener("c
   tween = { from, delta, t0: performance.now(), rXZ: Math.hypot(off.x, off.z), y: off.y };
 }));
 
+/* ---------- framing: each product gets its own camera target and fit box ---------- */
+const FIT = {
+  tee: { y: -57, h: 76, w: 52, lift: 0.075 },
+  bag: { y: 13, h: 33, w: 31, lift: 0.36 }
+};
+const TAN = Math.tan(THREE.MathUtils.degToRad(15));
+function frame(reset) {
+  const f = FIT[FV.product] || FIT.tee;
+  const off = camera.position.clone().sub(controls.target);
+  const az = reset ? 0.5 : Math.atan2(off.x, off.z);
+  const d = Math.max(f.h / TAN, f.w / (TAN * camera.aspect));
+  const lift = reset ? f.lift : THREE.MathUtils.clamp(off.y / (off.length() || 1), -0.4, 0.5);
+  controls.target.set(0, f.y, 0);
+  const flat = Math.sqrt(1 - lift * lift);
+  camera.position.set(Math.sin(az) * flat * d, f.y + lift * d, Math.cos(az) * flat * d);
+  tween = null;
+}
+
 /* ---------- resize / visibility ---------- */
 function resize() {
   const w = box.clientWidth, h = box.clientHeight;
@@ -334,9 +448,7 @@ function resize() {
   renderer.setSize(w, h, false);
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
-  const need = Math.max(285, 194 / camera.aspect);   /* fit full height, or full width on narrow screens */
-  const off = camera.position.clone().sub(controls.target).setLength(need);
-  camera.position.copy(controls.target).add(off);
+  frame(false);
 }
 new ResizeObserver(resize).observe(box);
 let visible = true;
@@ -384,10 +496,17 @@ renderer.setAnimationLoop((now) => {
   }
 });
 
+
 /* ---------- wire to the UI ---------- */
-let lastSize = -1;
+let lastKey = "";
 function sync() {
-  if (FV.size !== lastSize) { lastSize = FV.size; build(FV.size); }
+  const key = FV.product + ":" + FV.size;
+  if (key !== lastKey) {
+    const productChanged = lastKey.split(":")[0] !== FV.product;
+    lastKey = key;
+    build();
+    if (productChanged) frame(true);
+  }
   updateLabels(); applyFocus();
 }
 FV.on(sync);

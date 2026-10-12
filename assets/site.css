@@ -154,3 +154,12 @@ tbody tr.on td:first-child { text-decoration: underline; text-underline-offset: 
   .spec__v { font-size: 28px; }
   .finder form .pill { width: 100%; }
 }
+
+/* product tabs */
+.products { display: flex; flex-wrap: wrap; gap: 4px 24px; }
+.products button { font: 400 32px/1 var(--display); letter-spacing: .01em; color: var(--dim); padding: 0 0 6px; border-bottom: 1px solid transparent; transition: color .2s, border-color .2s; }
+.products button:hover { color: var(--fg); }
+.products button[aria-pressed="true"] { color: var(--fg); border-bottom-color: var(--fg); }
+.row-head { gap: 16px; align-items: flex-start; }
+.row-head .units { padding-top: 10px; }
+@media (max-width: 420px) { .products button { font-size: 28px; } }
