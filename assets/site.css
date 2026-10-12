@@ -179,3 +179,4 @@ tbody tr.on td:first-child { text-decoration: underline; text-underline-offset: 
 .care__list svg .fill { fill: #fff; stroke: none; }
 .care__list h3 { font-size: 22px; letter-spacing: .02em; }
 .care__list p { margin-top: 6px; color: var(--mute); }
+.care + .care { margin-top: clamp(56px, 9vh, 88px); }
