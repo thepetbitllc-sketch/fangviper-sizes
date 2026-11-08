@@ -54,7 +54,7 @@ const mTee = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.9, s
 const mRib = new THREE.MeshStandardMaterial({ color: 0x262626, roughness: 0.85 });
 const mStand = new THREE.MeshStandardMaterial({ color: 0x2c2c2c, roughness: 0.3, metalness: 0.7 });
 const mMeas = {};
-for (const k of ["A", "B", "C"]) mMeas[k] = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true });
+for (const k of ["A", "B", "C"]) mMeas[k] = new THREE.MeshBasicMaterial({ color: 0x9c7a54, transparent: true });
 
 const logoTex = new THREE.TextureLoader().load("assets/logo-white.png");
 logoTex.colorSpace = THREE.SRGBColorSpace;
@@ -64,7 +64,7 @@ logoTex.anisotropy = 4;
 const shadowTex = (() => {
   const c = document.createElement("canvas"); c.width = c.height = 128;
   const g = c.getContext("2d"), gr = g.createRadialGradient(64, 64, 4, 64, 64, 64);
-  gr.addColorStop(0, "rgba(0,0,0,.75)"); gr.addColorStop(1, "rgba(0,0,0,0)");
+  gr.addColorStop(0, "rgba(25,17,11,.22)"); gr.addColorStop(1, "rgba(0,0,0,0)");
   g.fillStyle = gr; g.fillRect(0, 0, 128, 128);
   return new THREE.CanvasTexture(c);
 })();
