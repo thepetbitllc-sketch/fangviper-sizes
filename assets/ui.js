@@ -18,7 +18,7 @@
         { k: "B", name: "Fits chest", hint: "Your body, measured around", chest: true },
         { k: "C", name: "Sleeve length", hint: "Back of collar to sleeve end", dim: "sleeve" }
       ],
-      columns: [["Length", "length"], ["Width (flat)", "width"], ["Sleeve", "sleeve"], ["Fits chest", "chest"]],
+      columns: [["Length", "length"], ["Width (flat)", "width"], ["Sleeve", "sleeve"], ["Fits chest", "chest-fit"]],
       tableTitle: "All sizes",
       tolerance: "Garment specs come from our print partner and may vary by up to 2 in (5 cm).",
       steps: [
@@ -52,8 +52,67 @@
         ["C", "Height", "Stand the tape at the bottom of a round end and measure straight up to the top seam."]
       ],
       tip: "Measured empty. A fully packed bag rounds out slightly, so leave a little room."
-    }
+    },
+    suit: suitProduct()
   };
+
+  /* Three-piece suit: supplier chart XF001 in cm (Casual Suit for Business and Wedding Attire + 2018 Spring Three-Piece).
+     Inches are computed from cm. "Fits chest" = garment chest minus SUIT_EASE inches of room, rounded to the half inch. */
+  function suitProduct() {
+    var SUIT_EASE = 3;
+    var cm = {
+      chest:    [92, 94, 98, 102, 106, 110, 114, 118, 122],
+      shoulder: [41, 42, 43, 44, 45, 46, 47, 48, 49],
+      sleeve:   [61, 61, 62, 63, 64, 65, 66, 67, 68],
+      jlength:  [67, 67, 68, 69, 70, 71, 72, 73, 74],
+      vchest:   [84, 88, 92, 96, 100, 104, 108, 112, 116],
+      vlength:  [54, 54, 55, 55, 56, 56, 57, 57, 58],
+      waist:    [72, 76, 80, 84, 88, 92, 96, 100, 104],
+      thigh:    [54, 56, 58, 61, 64, 67, 70, 73, 76],
+      tlength:  [105, 106, 107, 108, 110, 112, 114, 116, 118]
+    };
+    var dims = {};
+    Object.keys(cm).forEach(function (k) { dims[k] = { cm: cm[k], in: cm[k].map(function (c) { return c / 2.54; }) }; });
+    var up = dims.chest.in.map(function (g) { return Math.round((g - SUIT_EASE) * 2) / 2; });
+    var chest = up.map(function (u, i) { return [i ? up[i - 1] + 0.5 : u - 1.5, u]; });
+    return {
+      name: "Suit",
+      inchStep: 4,
+      finderSlack: 0,
+      sizes: ["S", "M", "L", "XL", "2XL", "3XL", "4XL", "5XL", "6XL"],
+      defaultSize: 1,
+      finder: true,
+      finderNote: "We pick the jacket that leaves about " + SUIT_EASE + " in (7.5 cm) of room around your chest, so it buttons cleanly. These suits run small, so many men land 1 to 2 sizes above their usual.",
+      dims: dims,
+      chest: chest, /* body, inches */
+      specs: [
+        { group: "Jacket" },
+        { k: "A", name: "Jacket length", hint: "Center back, collar seam to hem", dim: "jlength" },
+        { k: "B", name: "Chest", hint: "Around the jacket, armpit level", dim: "chest" },
+        { k: "C", name: "Sleeve", hint: "Shoulder point to cuff", dim: "sleeve" },
+        { k: "D", name: "Shoulder", hint: "Straight across the back, point to point", dim: "shoulder" },
+        { group: "Vest" },
+        { name: "Vest chest", hint: "Around the vest, armpit level", dim: "vchest" },
+        { name: "Vest length", hint: "Shoulder to the front points", dim: "vlength" },
+        { group: "Trousers" },
+        { name: "Waist", hint: "All the way around the waistband", dim: "waist" },
+        { name: "Thigh", hint: "Around the leg, just below the crotch", dim: "thigh" },
+        { name: "Trouser length", hint: "Waistband to hem, outside leg", dim: "tlength" }
+      ],
+      columns: [["Chest", "chest"], ["Shoulder", "shoulder"], ["Sleeve", "sleeve"], ["Jacket length", "jlength"],
+        ["Vest chest", "vchest"], ["Vest length", "vlength"], ["Waist", "waist"], ["Thigh", "thigh"], ["Trouser length", "tlength"], ["Fits chest", "chest-fit"]],
+      tableTitle: "All sizes · jacket, vest, trousers",
+      tolerance: "Measured on the garment by our supplier, by hand. Allow up to about 1 in (2–3 cm) either way.",
+      steps: [
+        ["A", "Jacket length", "Lay the jacket face down. Measure from the seam at the bottom of the collar, straight down the center back, to the hem."],
+        ["B", "Chest", "Button the jacket and lay it flat. Measure straight across from armpit to armpit, then double it. That is the number in the chart."],
+        ["C", "Sleeve", "From the point where the shoulder seam meets the sleeve, down the outside of the sleeve to the end of the cuff."],
+        ["D", "Shoulder", "Across the back, from one shoulder point (where the sleeve is sewn on) straight to the other."],
+        ["", "Your own chest", "Around the fullest part of your chest under the arms, tape level, breathing normally. Enter it in Find your size."]
+      ],
+      tip: "Fit check: the best test is a jacket you already own that fits you well. Measure its chest the same way and match it in the table."
+    };
+  }
 
   var state = { product: "tee", unit: "in", size: 1, focus: null };
   var subs = [];
@@ -74,7 +133,8 @@
   /* ---------- formatting ---------- */
   var FR = ["", "⅛", "¼", "⅜", "½", "⅝", "¾", "⅞"];
   function fmtIn(v) {
-    var w = Math.floor(v), n = Math.round((v - w) * 8);
+    var step = P.inchStep || 8; /* 8 = nearest eighth; the suit uses 4 so it matches its size chart image */
+    var w = Math.floor(v), n = Math.round((v - w) * step) * (8 / step);
     if (n === 8) { w++; n = 0; }
     return w + FR[n];
   }
@@ -82,7 +142,7 @@
   function val(dim, i) { return state.unit === "in" ? fmtIn(P.dims[dim].in[i]) : fmtCm(P.dims[dim].cm[i]); }
   function chestRange(i) {
     var r = P.chest[i];
-    return state.unit === "in" ? r[0] + "–" + r[1] : Math.round(r[0] * 2.54) + "–" + Math.round(r[1] * 2.54);
+    return state.unit === "in" ? fmtIn(r[0]) + "–" + fmtIn(r[1]) : Math.round(r[0] * 2.54) + "–" + Math.round(r[1] * 2.54);
   }
   function specVal(s, i) { return s.chest ? chestRange(i) : val(s.dim, i); }
   function emit() { subs.forEach(function (fn) { fn(); }); }
@@ -101,11 +161,14 @@
   function renderSpecs() {
     var u = state.unit, i = state.size;
     byId("specs").innerHTML = P.specs.map(function (s) {
+      if (s.group) return "<p class=\"spec__group\">" + s.group + "</p>";
       var hint = s.chest ? s.hint + ". Tee width laid flat: " + val("width", i) + " " + u : s.hint;
+      var inner = "<span class=\"spec__name\">" + s.name + "<span class=\"spec__hint\">" + hint + "</span></span>" +
+        "<span class=\"spec__v\">" + specVal(s, i) + "<small>" + u + "</small></span>";
+      /* measurements without a letter are not drawn on the 3D model, so they are plain rows */
+      if (!s.k) return "<div class=\"spec spec--plain\"><span class=\"spec__k\"></span>" + inner + "</div>";
       return "<button type=\"button\" class=\"spec" + (state.focus === s.k ? " on" : "") + "\" data-k=\"" + s.k + "\">" +
-        "<span class=\"spec__k\">" + s.k + "</span>" +
-        "<span class=\"spec__name\">" + s.name + "<span class=\"spec__hint\">" + hint + "</span></span>" +
-        "<span class=\"spec__v\">" + specVal(s, i) + "<small>" + u + "</small></span></button>";
+        "<span class=\"spec__k\">" + s.k + "</span>" + inner + "</button>";
     }).join("");
     var sizeName = P.sizes.length > 1 ? "size " + P.sizes[i] : P.sizes[i].toLowerCase();
     byId("specsLabel").textContent = "Measurements, " + sizeName;
@@ -116,13 +179,13 @@
     byId("thead").innerHTML = "<tr><th scope=\"col\">Size</th>" + P.columns.map(function (c) { return "<th scope=\"col\">" + c[0] + "</th>"; }).join("") + "</tr>";
     byId("tbody").innerHTML = P.sizes.map(function (s, i) {
       return "<tr data-size=\"" + i + "\"" + (i === state.size ? " class=\"on\"" : "") + "><td>" + s + "</td>" +
-        P.columns.map(function (c) { return "<td>" + (c[1] === "chest" ? chestRange(i) : val(c[1], i)) + "</td>"; }).join("") + "</tr>";
+        P.columns.map(function (c) { return "<td>" + (c[1] === "chest-fit" ? chestRange(i) : val(c[1], i)) + "</td>"; }).join("") + "</tr>";
     }).join("");
     byId("tblNote").textContent = "All values in " + (state.unit === "in" ? "inches" : "centimeters") + ". " + P.tolerance;
   }
   function renderSteps() {
     byId("steps").innerHTML = P.steps.map(function (s) {
-      return "<div><h3>" + s[0] + " · " + s[1] + "</h3><p>" + s[2] + "</p></div>";
+      return "<div><h3>" + (s[0] ? s[0] + " · " : "") + s[1] + "</h3><p>" + s[2] + "</p></div>";
     }).join("");
     byId("tip").textContent = P.tip;
     byId("finderBox").hidden = !P.finder;
@@ -147,8 +210,9 @@
       showResult("?", "That number looks off. Measure around your <b>chest</b>, not across it, and check the unit (" + state.unit + ").");
       return;
     }
-    for (var i = 0; i <= last; i++) { if (inches <= C[i][1] + 0.5) { idx = i; break; } }
-    if (idx === -1) { idx = last; note = " You are above our largest chest range, so " + P.sizes[last] + " is the roomiest we make."; }
+    var slack = P.finderSlack != null ? P.finderSlack : 0.5; /* tee ranges are whole inches; suits use 0 so a jacket never rounds down */
+    for (var i = 0; i <= last; i++) { if (inches <= C[i][1] + slack) { idx = i; break; } }
+    if (idx === -1) { idx = last; note = " You are above our largest chest range, so " + P.sizes[last] + " is the roomiest we make, and it may feel tight."; }
     else if (idx === 0 && inches < C[0][0]) { note = " You are below our smallest range, so " + P.sizes[0] + " will fit loose."; }
     else if (idx > 0 && inches < C[idx][0]) { note = " You are between sizes, so we rounded up to keep it from feeling tight."; }
     var relaxed = byId("relaxed").checked && idx < last;
@@ -156,7 +220,7 @@
     setSize(idx);
     showResult(P.sizes[idx],
       "Your chest: <b>" + raw + " " + state.unit + "</b>. Size <b>" + P.sizes[idx] + "</b> fits " + chestRange(idx) + " " + state.unit +
-      (relaxed ? ", sized up for a relaxed fit." : ".") + note);
+      (relaxed ? ", sized up for a relaxed fit." : ".") + note + (P.finderNote ? " " + P.finderNote : ""));
   }
   function showResult(size, html) {
     var r = byId("result");

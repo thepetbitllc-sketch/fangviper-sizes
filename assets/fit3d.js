@@ -54,7 +54,7 @@ const mTee = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.9, s
 const mRib = new THREE.MeshStandardMaterial({ color: 0x262626, roughness: 0.85 });
 const mStand = new THREE.MeshStandardMaterial({ color: 0x2c2c2c, roughness: 0.3, metalness: 0.7 });
 const mMeas = {};
-for (const k of ["A", "B", "C"]) mMeas[k] = new THREE.MeshBasicMaterial({ color: 0x9c7a54, transparent: true });
+for (const k of ["A", "B", "C", "D"]) mMeas[k] = new THREE.MeshBasicMaterial({ color: 0x9c7a54, transparent: true });
 
 const logoTex = new THREE.TextureLoader().load("assets/logo-white.png");
 logoTex.colorSpace = THREE.SRGBColorSpace;
@@ -156,7 +156,12 @@ function buildTee(i) {
     if (perimeter(mid + O, mid * RATIO + O, PT) > 2 * Wcm) hi = mid; else lo = mid;
   }
   const a = (lo + hi) / 2, b = a * RATIO, sh = a * 1.1;
+  const bW = addForm(a, b, sh);
+  buildTeeShell(i, a, sh, bW, L, S);
+}
 
+/* dress form + stand, shared by every garment; returns the body profile lookup bW(y, "w"|"d") */
+function addForm(a, b, sh) {
   /* dress-form profile: [half-width, y, half-depth]; y = 0 is the top of the shoulder by the neck */
   const ctrl = [
     [5.2, 14, 5.0], [5.6, 9, 5.4], [6.2, 2.2, 6.0], [8, 0.4, 7.2],
@@ -176,7 +181,10 @@ function buildTee(i) {
   const base = new THREE.Mesh(new THREE.CylinderGeometry(15, 17, 2.4, 48), mStand);
   base.position.y = -130; model.add(base);
   addShadow(model, -131.4, 90, 1);
+  return bW;
+}
 
+function buildTeeShell(i, a, sh, bW, L, S) {
   /* tee shell, hem at exactly the garment length below the shoulder */
   const yTop = 0.9, hemY = -L + 0.6, ys = [];
   for (let y = yTop; y > hemY; y -= 0.7) ys.push(y);
@@ -385,13 +393,198 @@ function buildBag() {
   builtAt = performance.now();
 }
 
+/* ---------- three-piece suit, built from the real cm specs of the chosen size:
+   A jacket length (center back), B jacket chest (all the way round), C sleeve (shoulder point to cuff), D shoulder (point to point).
+   The vest, shirt and tie show in the jacket opening; vest and trouser numbers live in the panel and table. ---------- */
+const mJacket = new THREE.MeshStandardMaterial({ color: 0x24272d, roughness: 0.8, side: THREE.DoubleSide });
+const mLapel = new THREE.MeshStandardMaterial({ color: 0x2c2f36, roughness: 0.42, side: THREE.DoubleSide });
+const mVest = new THREE.MeshStandardMaterial({ color: 0x30343b, roughness: 0.72, side: THREE.DoubleSide });
+const mShirt = new THREE.MeshStandardMaterial({ color: 0xf1eee8, roughness: 0.8, side: THREE.DoubleSide });
+const mTie = new THREE.MeshStandardMaterial({ color: 0x5b1f2c, roughness: 0.55, side: THREE.DoubleSide });
+const mButton = new THREE.MeshStandardMaterial({ color: 0x0e0e0e, roughness: 0.3, metalness: 0.25 });
+
+function buildSuit(i) {
+  resetModel();
+  meas.D = { parts: [] };
+  const D = FV.data.dims, C = D.chest.cm[i], L = D.jlength.cm[i], S = D.sleeve.cm[i], SHW = D.shoulder.cm[i];
+  const OJ = 2.0; /* a jacket stands a little further off the body than a tee */
+
+  /* body chest half-width chosen so the jacket around it measures exactly the spec chest */
+  let lo = 5, hi = 80;
+  for (let k = 0; k < 40; k++) {
+    const mid = (lo + hi) / 2;
+    if (perimeter(mid + OJ, mid * RATIO + OJ, PT) > C) hi = mid; else lo = mid;
+  }
+  const a = (lo + hi) / 2, b = a * RATIO;
+  const sh = Math.max(a * 0.95, SHW / 2 - OJ); /* jacket shoulder points land at the spec shoulder width */
+  const bW = addForm(a, b, sh);
+
+  /* jacket shell, hem at exactly the jacket length below the shoulder */
+  const yTop = 1.2, hemY = -L + 0.8, ys = [];
+  for (let y = yTop; y > hemY; y -= 0.7) ys.push(y);
+  ys.push(hemY);
+  const jk = ys.map((y) => {
+    const flare = Math.max(0, 1 - (y - hemY) / 14) * 1.2;
+    return { y, w: bW(y, "w") + OJ + flare, d: bW(y, "d") + OJ + flare };
+  });
+  const tW = interp(jk);
+  model.add(new THREE.Mesh(loft(jk, 96, PT, false, false), mJacket));
+
+  const topY = (x) => {
+    for (let k = 1; k < jk.length; k++) {
+      if (jk[k].w >= x) {
+        const p0 = jk[k - 1], p1 = jk[k], t = (x - p0.w) / ((p1.w - p0.w) || 1);
+        return p0.y + (p1.y - p0.y) * Math.min(1, Math.max(0, t));
+      }
+    }
+    return jk[jk.length - 1].y;
+  };
+  const frontZ = (x, y) => {
+    const w = tW(y, "w"), d = tW(y, "d");
+    if (Math.abs(x) >= w) return 0;
+    return d * Math.pow(1 - Math.pow(Math.abs(x) / w, PT), 1 / PT);
+  };
+  /* a patch that follows the jacket front: rows from y0 down to y1, columns from xa(y) to xb(y), lifted by off */
+  const band = (y0, y1, xa, xb, off, mat, nx = 10) => {
+    const pos = [], idx = [], ny = Math.max(2, Math.ceil((y0 - y1) / 0.8));
+    for (let r = 0; r <= ny; r++) {
+      const y = y0 + ((y1 - y0) * r) / ny, x0 = xa(y), x1 = xb(y);
+      for (let c = 0; c <= nx; c++) { const x = x0 + ((x1 - x0) * c) / nx; pos.push(x, y, frontZ(x, y) + off); }
+    }
+    for (let r = 0; r < ny; r++) for (let c = 0; c < nx; c++) {
+      const p = r * (nx + 1) + c, q = p + nx + 1;
+      idx.push(p, q, p + 1, p + 1, q, q + 1);
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+    g.setIndex(idx); g.computeVertexNormals();
+    model.add(new THREE.Mesh(g, mat));
+  };
+
+  const nW = tW(yTop, "w"), nD = tW(yTop, "d");
+  const yV0 = yTop - 0.6, yVb = -L * 0.42, yS = -L * 0.24;
+  const J = (y) => Math.max(0, (nW + 0.6) * (y - yVb) / (yV0 - yVb));
+  const Sx = (y) => Math.max(0, nW * 0.72 * (y - yS) / (yV0 - yS));
+  const lap = (y) => { const t = (yV0 - y) / (yV0 - yVb); return 1 + 5.5 * Math.sin(Math.PI * Math.min(1, t * 0.9 + 0.05)); };
+
+  /* vest in the jacket opening, shirt V, tie */
+  band(yV0 - 2.5, yVb, (y) => -J(y), (y) => J(y), 0.25, mVest);
+  band(yV0, yS, (y) => -Sx(y), (y) => Sx(y), 0.4, mShirt);
+  const tieW = (y) => 0.8 + 0.7 * (yV0 - y) / (yV0 - yS);
+  band(yV0 - 1.8, yS + 0.4, (y) => -tieW(y), (y) => tieW(y), 0.55, mTie, 4);
+  band(yV0 - 0.2, yV0 - 2.1, () => -1.25, () => 1.25, 0.62, mTie, 4);
+  for (let y = yS - 2.5; y > yVb + 1.5; y -= 4) {
+    const bt = new THREE.Mesh(new THREE.SphereGeometry(0.55, 14, 10), mButton);
+    bt.scale.z = 0.45; bt.position.set(0, y, frontZ(0, y) + 0.45); model.add(bt);
+  }
+  /* lapels along both edges of the V */
+  band(yV0, yVb, (y) => J(y), (y) => J(y) + lap(y), 0.5, mLapel, 6);
+  band(yV0, yVb, (y) => -J(y) - lap(y), (y) => -J(y), 0.5, mLapel, 6);
+
+  /* jacket buttons, front edge, pockets, pocket square */
+  for (const y of [yVb - 3, yVb - 12]) {
+    const bt = new THREE.Mesh(new THREE.SphereGeometry(0.85, 16, 10), mButton);
+    bt.scale.z = 0.4; bt.position.set(0.6, y, frontZ(0.6, y) + 0.45); model.add(bt);
+  }
+  const edge = [];
+  for (let y = yVb; y > hemY + 7; y -= 2) edge.push(new V3(0, y, frontZ(0, y) + 0.3));
+  for (let k = 0; k <= 6; k++) { const t = k / 6, y = hemY + 7 - 7 * t, x = 5 * t * t; edge.push(new V3(x, y, frontZ(x, y) + 0.3)); }
+  model.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(edge, false, "centripetal"), 80, 0.14, 6), mButton));
+  const pY = -L * 0.66;
+  band(pY, pY - 2.4, () => 6, () => 17, 0.35, mLapel, 8);
+  band(pY, pY - 2.4, () => -17, () => -6, 0.35, mLapel, 8);
+  band(-14.2, -15.6, () => 8, () => 15.5, 0.35, mLapel, 6);
+  band(-12.6, -14.3, (y) => 9.5 + (y + 12.6) * -0.6, () => 13.8, 0.5, mShirt, 4);
+
+  /* collar: jacket collar round the back, shirt collar inside */
+  const jc = new THREE.Mesh(new THREE.TorusGeometry(nW + 0.2, 1.25, 12, 64), mJacket);
+  jc.rotation.x = Math.PI / 2 - 0.16; jc.scale.set(1, nD / nW, 1); jc.position.y = yTop - 0.1; model.add(jc);
+  const sc = new THREE.Mesh(new THREE.TorusGeometry(nW - 0.9, 0.8, 10, 64), mShirt);
+  sc.rotation.x = Math.PI / 2 - 0.16; sc.scale.set(1, nD / nW, 1); sc.position.y = yTop + 1.1; model.add(sc);
+
+  /* arms + long sleeves; the sleeve runs the full spec length from the shoulder point */
+  const ang = THREE.MathUtils.degToRad(11);
+  const armR = 4.4 + (a - 16) * 0.13;
+  const rTop = armR + 2.8, rBot = armR + 1.5;
+  const dirR = new V3(Math.sin(ang), -Math.cos(ang), 0), perpR = new V3(Math.cos(ang), Math.sin(ang), 0);
+  const S0r = new V3(sh - armR * 0.5, -10, 0).addScaledVector(dirR, -1.2);
+  const SP = S0r.clone().addScaledVector(perpR, rTop + 0.35);
+  for (const s of [1, -1]) {
+    const dir = new V3(s * Math.sin(ang), -Math.cos(ang), 0);
+    const A0 = new V3(s * (sh - armR * 0.5), -10, 0);
+    const arm = new THREE.Mesh(new THREE.CapsuleGeometry(armR, S - 6, 8, 24), mForm);
+    arm.quaternion.setFromUnitVectors(UP, dir);
+    arm.position.copy(A0).addScaledVector(dir, (S - 6) / 2 + 1);
+    model.add(arm);
+    const S0 = A0.clone().addScaledVector(dir, -1.2);
+    const sleeve = new THREE.Mesh(new THREE.CylinderGeometry(rTop, rBot, S, 48, 1, true), mJacket);
+    sleeve.quaternion.setFromUnitVectors(UP, dir.clone().negate());
+    sleeve.position.copy(S0).addScaledVector(dir, S / 2);
+    model.add(sleeve);
+    const cap = new THREE.Mesh(new THREE.SphereGeometry(rTop + 0.15, 40, 20), mJacket);
+    cap.scale.set(1, 0.5, 1); cap.quaternion.copy(sleeve.quaternion); cap.position.copy(S0);
+    model.add(cap);
+    const cuff = new THREE.Mesh(new THREE.TorusGeometry(rBot - 0.7, 0.45, 8, 40), mShirt);
+    cuff.quaternion.setFromUnitVectors(FWD, dir);
+    cuff.position.copy(S0).addScaledVector(dir, S + 0.5);
+    model.add(cuff);
+  }
+
+  /* ---------- measurement lines ---------- */
+  /* A: jacket length, center back from the collar seam to the hem */
+  const ptsA = [];
+  for (let y = yTop - 0.4; y > hemY; y -= 0.8) ptsA.push(new V3(0, y, -(frontZ(0, y) + 0.5)));
+  ptsA.push(new V3(0, hemY, -(frontZ(0, hemY) + 0.5)));
+  meas.A.parts.push(tube(ptsA, 0.38, false, mMeas.A), dot(ptsA[0], mMeas.A), dot(ptsA[ptsA.length - 1], mMeas.A));
+  const aAt = ptsA[Math.floor(ptsA.length * 0.6)];
+  meas.A.anchor = () => aAt; meas.A.normal = new V3(0, 0, -1);
+
+  /* B: chest, a level ring round the jacket at the armpits */
+  const yB = -19, wB = tW(yB, "w") + 0.9, dB = tW(yB, "d") + 0.9, ptsB = [];
+  for (let j = 0; j < 160; j++) { const q = sePoint(wB, dB, (j / 160) * Math.PI * 2, PT); ptsB.push(new V3(q[0], yB, q[1])); }
+  meas.B.parts.push(tube(ptsB, 0.55, true, mMeas.B));
+  meas.B.anchor = () => {
+    const th0 = Math.atan2(camera.position.x, camera.position.z), th = th0 + (Math.cos(th0) >= 0 ? -0.8 : 0.8);
+    const q = sePoint(wB + 0.6, dB + 0.6, Math.PI / 2 - th, PT);
+    return new V3(q[0], yB, q[1]);
+  };
+  meas.B.normal = null;
+
+  /* C: sleeve, from the shoulder point down the outside of the sleeve to the cuff */
+  const ptsC = [];
+  for (let k = 0; k <= 10; k++) {
+    const t = k / 10, r = rTop + (rBot - rTop) * t + 0.35;
+    ptsC.push(S0r.clone().addScaledVector(dirR, S * t).addScaledVector(perpR, r));
+  }
+  meas.C.parts.push(tube(ptsC, 0.38, false, mMeas.C), dot(ptsC[0], mMeas.C), dot(ptsC[10], mMeas.C));
+  const cAt = ptsC[6];
+  meas.C.anchor = () => cAt; meas.C.normal = new V3(1, 0, 0);
+
+  /* D: shoulder, across the back from one shoulder point to the other */
+  const ptsD = [], xe = SP.x, rn = nW + 0.6, rd = nD + 0.6;
+  for (let k = 0; k <= 40; k++) {
+    const x = -xe + (2 * xe * k) / 40, ax = Math.abs(x);
+    const z = ax < rn ? -rd * Math.sqrt(Math.max(0, 1 - (x / rn) * (x / rn))) - 0.2 : -0.2;
+    ptsD.push(new V3(x, (ax > xe - 1 ? SP.y : topY(ax) + 0.55), z));
+  }
+  meas.D.parts.push(tube(ptsD, 0.38, false, mMeas.D), dot(ptsD[0], mMeas.D), dot(ptsD[40], mMeas.D));
+  const dAt = new V3(0, topY(0) + 0.6, -rd - 0.2);
+  meas.D.anchor = () => dAt; meas.D.normal = new V3(0, 0.3, -1).normalize();
+
+  for (const k in meas) for (const p of meas[k].parts) model.add(p);
+  scene.add(model);
+  builtAt = performance.now();
+}
+
 function build() {
-  if (FV.product === "bag") buildBag(); else buildTee(FV.size);
+  if (FV.product === "bag") buildBag();
+  else if (FV.product === "suit") buildSuit(FV.size);
+  else buildTee(FV.size);
 }
 
 /* ---------- labels ---------- */
 const tags = {};
-for (const k of ["A", "B", "C"]) {
+for (const k of ["A", "B", "C", "D"]) {
   const el = document.createElement("button");
   el.type = "button"; el.className = "tag hide"; el.dataset.k = k;
   el.innerHTML = "<b>" + k + "</b><span></span>";
@@ -426,6 +619,7 @@ document.querySelectorAll("[data-cam]").forEach((btn) => btn.addEventListener("c
 /* ---------- framing: each product gets its own camera target and fit box ---------- */
 const FIT = {
   tee: { y: -57, h: 76, w: 52, lift: 0.075 },
+  suit: { y: -57, h: 78, w: 56, lift: 0.075 },
   bag: { y: 13, h: 33, w: 31, lift: 0.36 }
 };
 const TAN = Math.tan(THREE.MathUtils.degToRad(15));
@@ -457,7 +651,7 @@ new IntersectionObserver((e) => { visible = e[0].isIntersecting; }).observe(box)
 /* ---------- loop ---------- */
 const ease = (t) => 1 - Math.pow(1 - t, 3);
 const v = new V3(), toCam = new V3();
-const DELAY = { B: 0, A: 350, C: 650 };
+const DELAY = { B: 0, A: 350, C: 650, D: 900 };
 
 renderer.setAnimationLoop((now) => {
   if (!visible) return;
@@ -481,6 +675,7 @@ renderer.setAnimationLoop((now) => {
 
   /* place the HTML labels on their lines */
   const w = box.clientWidth, h = box.clientHeight;
+  for (const k in tags) if (!meas[k]) tags[k].classList.add("hide"); /* e.g. D only exists on the suit */
   for (const k in meas) {
     const m = meas[k], el = tags[k];
     if ((now - builtAt - DELAY[k]) / 1100 < 0.6) { el.classList.add("hide"); continue; }

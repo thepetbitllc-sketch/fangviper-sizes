@@ -96,6 +96,13 @@ h1, h2, h3 { font-family: var(--display); font-weight: 400; letter-spacing: .01e
 .spec__v { font: 300 26px/1 var(--display); letter-spacing: .01em; white-space: nowrap; }
 .spec__v small { font: 400 11px/1 var(--body); color: var(--mute); margin-left: 5px; text-transform: uppercase; letter-spacing: .08em; }
 .spec.on .spec__k, .spec:hover .spec__k { background: var(--accent); border-color: var(--accent); color: #fff; }
+/* suit: group headings (Jacket / Vest / Trousers) and rows that are not drawn on the 3D model */
+.spec__group { font: 500 11px/1 var(--body); letter-spacing: .16em; text-transform: uppercase; color: var(--accent); padding: 22px 0 4px; border-bottom: 1px solid var(--hair); }
+.specs > .spec__group:first-child { padding-top: 14px; }
+.spec--plain { padding: 14px 0; }
+.spec--plain .spec__k { border-color: transparent; }
+.spec--plain:hover .spec__k { background: none; border-color: transparent; }
+.spec--plain .spec__v { font-size: 21px; }
 
 /* finder */
 .finder { margin-top: 48px; padding: 32px; background: var(--cream); }
