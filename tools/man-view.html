@@ -1,0 +1,33 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>man check</title>
+<style>html,body{margin:0;background:#fff}canvas{display:block}</style>
+<script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }</script>
+</head><body>
+<script type="module">
+/* dev check page: renders the fit model (assets/man.js) from several angles. ?y=centre&h=half-height&v=angles */
+import * as THREE from "three";
+import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
+import { loadMan, fitFn, buildMan } from "../assets/man.js";
+const q = new URLSearchParams(location.search);
+const W = 1600, H = 900;
+const r = new THREE.WebGLRenderer({ antialias: true }); r.setSize(W, H); r.setClearColor(0xf6f5f3);
+r.toneMapping = THREE.ACESFilmicToneMapping; document.body.appendChild(r.domElement);
+const scene = new THREE.Scene();
+scene.environment = new THREE.PMREMGenerator(r).fromScene(new RoomEnvironment(), 0.04).texture;
+scene.environmentIntensity = 0.42;
+scene.add(new THREE.HemisphereLight(0xffffff, 0x2a2420, 0.55));
+const key = new THREE.DirectionalLight(0xfff6ee, 2.1); key.position.set(120, 160, 220); scene.add(key);
+const rim = new THREE.DirectionalLight(0xffffff, 2.0); rim.position.set(-180, 90, -220); scene.add(rim);
+const M = await loadMan("../assets/man.json");
+scene.add(buildMan(M, fitFn(M, { k: +(q.get("k") || 1) })).group);
+const views = (q.get("v") || "0,30,90,180").split(",").map(Number);
+const ty = +(q.get("y") || -70), half = +(q.get("h") || 85);
+const cam = new THREE.PerspectiveCamera(20, (W / views.length) / H, 1, 5000);
+r.setScissorTest(true);
+views.forEach((a, k) => {
+  const dist = half / Math.tan(10 * Math.PI / 180), t = a * Math.PI / 180;
+  cam.position.set(Math.sin(t) * dist, ty + half * 0.1, Math.cos(t) * dist); cam.lookAt(0, ty, 0);
+  const w = W / views.length; r.setViewport(k * w, 0, w, H); r.setScissor(k * w, 0, w, H); r.render(scene, cam);
+});
+document.title = "ready";
+</script></body></html>

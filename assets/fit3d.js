@@ -1,6 +1,9 @@
-/* Fangviper size chart: 3D models (three.js). Each model is built from the real cm specs of the chosen product and size. */
+/* Fangviper size chart: 3D models (three.js). Every garment is worn by a realistic man (MakeHuman CC0 body, assets/man.js)
+   who is scaled per size so the garment built round him measures exactly the real cm specs of the chosen product and size. */
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
+import { loadMan, fitFn, buildMan, makeSlicer, hull2, radial, fixRing, perimeterR, NA, ZC } from "./man.js";
 
 const FV = window.FV;
 const box = document.getElementById("viewer");
@@ -9,10 +12,10 @@ const hint = document.getElementById("hint");
 const V3 = THREE.Vector3;
 const UP = new V3(0, 1, 0), FWD = new V3(0, 0, 1);
 
-function fail() {
+function fail(msg) {
   const f = document.createElement("div");
   f.className = "fallback";
-  f.textContent = "The 3D model needs WebGL, which is turned off in this browser. Every measurement is in the panel and the full chart below.";
+  f.textContent = msg || "The 3D model needs WebGL, which is turned off in this browser. Every measurement is in the panel and the full chart below.";
   box.appendChild(f);
   hint.style.display = "none";
 }
@@ -26,7 +29,7 @@ box.prepend(renderer.domElement);
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(30, 1, 1, 3000);
-const target = new V3(0, -57, 0);
+const target = new V3(0, -40, 0);
 camera.position.set(Math.sin(0.45) * 265, target.y + 20, Math.cos(0.45) * 265);
 
 const controls = new OrbitControls(camera, renderer.domElement);
@@ -45,18 +48,31 @@ controls.autoRotateSpeed = 1.1;
 renderer.domElement.style.touchAction = "pan-y";
 if (matchMedia("(pointer: coarse)").matches) hint.textContent = "Swipe sideways to rotate";
 
-/* ---------- lights ---------- */
-scene.add(new THREE.HemisphereLight(0xffffff, 0x1a1a1a, 1.1));
-const key = new THREE.DirectionalLight(0xffffff, 2.4); key.position.set(120, 160, 220); scene.add(key);
-const rim = new THREE.DirectionalLight(0xffffff, 2.8); rim.position.set(-180, 90, -220); scene.add(rim);
-const rim2 = new THREE.DirectionalLight(0xffffff, 1.6); rim2.position.set(220, 40, -120); scene.add(rim2);
-const fill = new THREE.DirectionalLight(0xffffff, 0.7); fill.position.set(-220, -20, 140); scene.add(fill);
+/* ---------- lights: a soft studio room for reflections + key/rim lights ---------- */
+scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture;
+scene.environmentIntensity = 0.42;
+scene.add(new THREE.HemisphereLight(0xffffff, 0x2a2420, 0.55));
+const key = new THREE.DirectionalLight(0xfff6ee, 2.1); key.position.set(120, 160, 220); scene.add(key);
+const rim = new THREE.DirectionalLight(0xffffff, 2.0); rim.position.set(-180, 90, -220); scene.add(rim);
+const rim2 = new THREE.DirectionalLight(0xffffff, 1.1); rim2.position.set(220, 40, -120); scene.add(rim2);
+const fill = new THREE.DirectionalLight(0xffffff, 0.5); fill.position.set(-220, -20, 140); scene.add(fill);
 
 /* ---------- materials ---------- */
-const mForm = new THREE.MeshStandardMaterial({ color: 0x8e8e8e, roughness: 0.48, metalness: 0.05, side: THREE.DoubleSide });
-const mTee = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.9, side: THREE.DoubleSide });
-const mRib = new THREE.MeshStandardMaterial({ color: 0x262626, roughness: 0.85 });
+const fabric = (color, roughness = 0.9, sheen = 0.5) => new THREE.MeshPhysicalMaterial({ color, roughness, sheen, sheenRoughness: 0.8, sheenColor: new THREE.Color(0xffffff).multiplyScalar(0.18), side: THREE.DoubleSide });
+const mTee = fabric(0x1b1b1c);
+const mRib = fabric(0x262627, 0.85);
 const mStand = new THREE.MeshStandardMaterial({ color: 0x2c2c2c, roughness: 0.3, metalness: 0.7 });
+const mShirtBody = fabric(0xf0ede7, 0.82, 0.3);
+const mChino = fabric(0x2c3342, 0.88);
+const mTrouser = fabric(0x303236, 0.8);
+const mJacket = fabric(0x24272d, 0.78, 0.35);
+const mLapel = new THREE.MeshStandardMaterial({ color: 0x2c2f36, roughness: 0.42, side: THREE.DoubleSide });
+const mVest = fabric(0x30343b, 0.72, 0.3);
+const mShirt = fabric(0xf1eee8, 0.8, 0.3);
+const mTie = new THREE.MeshPhysicalMaterial({ color: 0x5b1f2c, roughness: 0.45, sheen: 0.6, sheenColor: new THREE.Color(0x8a4050), side: THREE.DoubleSide });
+const mButton = new THREE.MeshStandardMaterial({ color: 0x0e0e0e, roughness: 0.3, metalness: 0.25 });
+const mBelt = new THREE.MeshPhysicalMaterial({ color: 0x16100c, roughness: 0.4, clearcoat: 0.4, side: THREE.DoubleSide });
+const mBuckle = new THREE.MeshStandardMaterial({ color: 0xb8b2a6, roughness: 0.25, metalness: 0.95 });
 const mMeas = {};
 for (const k of ["A", "B", "C", "D"]) mMeas[k] = new THREE.MeshBasicMaterial({ color: 0x9c7a54, transparent: true });
 
@@ -68,7 +84,7 @@ logoTex.anisotropy = 4;
 const shadowTex = (() => {
   const c = document.createElement("canvas"); c.width = c.height = 128;
   const g = c.getContext("2d"), gr = g.createRadialGradient(64, 64, 4, 64, 64, 64);
-  gr.addColorStop(0, "rgba(25,17,11,.22)"); gr.addColorStop(1, "rgba(0,0,0,0)");
+  gr.addColorStop(0, "rgba(25,17,11,.26)"); gr.addColorStop(1, "rgba(0,0,0,0)");
   g.fillStyle = gr; g.fillRect(0, 0, 128, 128);
   return new THREE.CanvasTexture(c);
 })();
@@ -78,53 +94,13 @@ function addShadow(group, y, size, stretch) {
   group.add(sh);
 }
 
-
-/* ---------- geometry helpers ---------- */
-function sePoint(w, d, t, p) {
-  const c = Math.cos(t), s = Math.sin(t);
-  return [w * Math.sign(c) * Math.pow(Math.abs(c), 2 / p), d * Math.sign(s) * Math.pow(Math.abs(s), 2 / p)];
-}
-function perimeter(w, d, p) {
-  let per = 0, prev = sePoint(w, d, 0, p);
-  for (let j = 1; j <= 256; j++) {
-    const q = sePoint(w, d, (j / 256) * Math.PI * 2, p);
-    per += Math.hypot(q[0] - prev[0], q[1] - prev[1]); prev = q;
-  }
-  return per;
-}
-/* loft rings {y, w, d} (top to bottom) into a superellipse tube */
-function loft(rings, seg, p, capTop, capBot) {
-  const pos = [], idx = [], n = seg + 1;
-  for (const r of rings) for (let j = 0; j <= seg; j++) {
-    const q = sePoint(r.w, r.d, (j / seg) * Math.PI * 2, p);
-    pos.push(q[0], r.y, q[1]);
-  }
-  for (let i = 0; i < rings.length - 1; i++) for (let j = 0; j < seg; j++) {
-    const a = i * n + j, b = a + n;
-    idx.push(a, b, a + 1, a + 1, b, b + 1);
-  }
-  const cap = (ri) => {
-    const c = pos.length / 3; pos.push(0, rings[ri].y, 0);
-    for (let j = 0; j < seg; j++) idx.push(c, ri * n + j, ri * n + j + 1);
-  };
-  if (capTop) cap(0);
-  if (capBot) cap(rings.length - 1);
-  const g = new THREE.BufferGeometry();
-  g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
-  g.setIndex(idx);
-  g.computeVertexNormals();
-  return g;
-}
-function interp(rings) {
-  return (y, key) => {
-    if (y >= rings[0].y) return rings[0][key];
-    for (let i = 0; i < rings.length - 1; i++) {
-      const a = rings[i], b = rings[i + 1];
-      if (y <= a.y && y >= b.y) { const t = (a.y - y) / ((a.y - b.y) || 1); return a[key] + (b[key] - a[key]) * t; }
-    }
-    return rings[rings.length - 1][key];
-  };
-}
+/* ---------- small helpers ---------- */
+const sm = (e0, e1, x) => { const t = Math.min(1, Math.max(0, (x - e0) / (e1 - e0))); return t * t * (3 - 2 * t); };
+const lerp = (a, b, t) => a + (b - a) * t;
+const addR = (r, e) => { const o = new Float32Array(NA); for (let j = 0; j < NA; j++) o[j] = r[j] + e; return o; };
+const mulR = (r, k) => { const o = new Float32Array(NA); for (let j = 0; j < NA; j++) o[j] = r[j] * k; return o; };
+const maxR = (a, b) => { const o = new Float32Array(NA); for (let j = 0; j < NA; j++) o[j] = Math.max(a[j], b[j]); return o; };
+const ang = (j) => (j / NA) * Math.PI * 2;
 function tube(points, radius, closed, mat) {
   const curve = new THREE.CatmullRomCurve3(points, closed, "centripetal");
   const g = new THREE.TubeGeometry(curve, Math.max(80, points.length * 3), radius, 8, closed);
@@ -133,243 +109,592 @@ function tube(points, radius, closed, mat) {
   g.setDrawRange(0, 0);
   return m;
 }
+function solid(points, radius, closed, mat, seg = 8) {
+  return new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points, closed, "centripetal"), Math.max(40, points.length * 2), radius, seg, closed), mat);
+}
 function dot(p, mat) {
   const m = new THREE.Mesh(new THREE.SphereGeometry(0.95, 16, 12), mat);
   m.position.copy(p); m.scale.setScalar(0.001);
   return m;
 }
-
-/* ---------- build the model for one size ---------- */
-let model = null, meas = {}, builtAt = 0;
-const O = 1.4, PB = 2.2, PT = 2.4, RATIO = 0.68;
-
-function buildTee(i) {
-  if (model) {
-    scene.remove(model);
-    model.traverse((o) => { if (o.geometry) o.geometry.dispose(); });
-  }
-  model = new THREE.Group();
-  meas = { A: { parts: [] }, B: { parts: [] }, C: { parts: [] } };
-
-  const P = FV.data, Wcm = P.dims.width.cm[i], L = P.dims.length.cm[i], S = P.dims.sleeve ? P.dims.sleeve.cm[i] : 0; /* the vest has no sleeve */
-
-  /* body chest half-width chosen so the tee around it measures exactly 2 x the flat width */
-  let lo = 5, hi = 70;
-  for (let k = 0; k < 40; k++) {
-    const mid = (lo + hi) / 2;
-    if (perimeter(mid + O, mid * RATIO + O, PT) > 2 * Wcm) hi = mid; else lo = mid;
-  }
-  const a = (lo + hi) / 2, b = a * RATIO, sh = a * 1.1;
-  const bW = addForm(a, b, sh);
-  if (P.sleeveless) delete meas.C; /* the vest has no sleeve line */
-  buildTeeShell(i, a, sh, bW, L, S, { sleeveless: !!P.sleeveless });
+function geo(pos, idx) {
+  const g = new THREE.BufferGeometry();
+  g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+  g.setIndex(idx); g.computeVertexNormals();
+  return g;
+}
+function solveK(target, fn, lo = 0.55, hi = 2) { /* fn(k) grows with k */
+  for (let it = 0; it < 40; it++) { const mid = (lo + hi) / 2; if (fn(mid) > target) hi = mid; else lo = mid; }
+  return (lo + hi) / 2;
 }
 
-/* dress shirt: the collar is the size, so the body is a mid-size form and only the collar ring (A) is measured */
-const mShirtBody = new THREE.MeshStandardMaterial({ color: 0xeeebe5, roughness: 0.82, side: THREE.DoubleSide });
-function buildShirt(i) {
+/* ---------- the man ---------- */
+let M = null, model = null, meas = {}, builtAt = 0;
+function resetModel() {
   if (model) { scene.remove(model); model.traverse((o) => { if (o.geometry) o.geometry.dispose(); }); }
   model = new THREE.Group();
-  meas = { A: { parts: [] } };
-  const a = 17.5, b = a * RATIO, sh = a * 1.1;
-  const bW = addForm(a, b, sh);
-  buildTeeShell(i, a, sh, bW, 78, 86, { shirt: true, collarCm: FV.data.dims.collar.cm[i] });
+  meas = { A: { parts: [] }, B: { parts: [] }, C: { parts: [] } };
 }
-
-/* dress form + stand, shared by every garment; returns the body profile lookup bW(y, "w"|"d") */
-function addForm(a, b, sh) {
-  /* dress-form profile: [half-width, y, half-depth]; y = 0 is the top of the shoulder by the neck */
-  const ctrl = [
-    [5.2, 14, 5.0], [5.6, 9, 5.4], [6.2, 2.2, 6.0], [8, 0.4, 7.2],
-    [sh * 0.6, -1.8, b * 0.62], [sh * 0.88, -4.4, b * 0.78], [sh, -7.5, b * 0.86], [sh * 0.97, -12, b * 0.94],
-    [a, -18, b], [a * 0.985, -27, b], [a * 0.9, -42, b * 0.93], [a * 0.92, -58, b * 0.92],
-    [a * 0.98, -76, b * 0.95], [a * 0.95, -90, b * 0.9], [a * 0.72, -96, b * 0.66]
-  ].map((c) => new V3(c[0], c[1], c[2]));
-  const bodyRings = new THREE.CatmullRomCurve3(ctrl, false, "centripetal").getSpacedPoints(150).map((v) => ({ w: v.x, y: v.y, d: v.z }));
-  const bW = interp(bodyRings);
-  model.add(new THREE.Mesh(loft(bodyRings, 72, PB, true, true), mForm));
-  const knob = new THREE.Mesh(new THREE.SphereGeometry(5.2, 24, 12), mStand);
-  knob.scale.set(1, 0.45, 0.96); knob.position.y = 14; model.add(knob);
-
-  /* stand */
-  const pole = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.5, 34, 20), mStand);
-  pole.position.y = -113; model.add(pole);
-  const base = new THREE.Mesh(new THREE.CylinderGeometry(15, 17, 2.4, 48), mStand);
-  base.position.y = -130; model.add(base);
-  addShadow(model, -131.4, 90, 1);
-  return bW;
-}
-
-/* opts: sleeveless (gym vest: no sleeves, no line C), shirt (long sleeves, light fabric, collar band measured as A from opts.collarCm) */
-function buildTeeShell(i, a, sh, bW, L, S, opts = {}) {
-  const mBody = opts.shirt ? mShirtBody : mTee, mTrim = opts.shirt ? mShirtBody : mRib;
-  /* tee shell, hem at exactly the garment length below the shoulder */
-  const yTop = 0.9, hemY = -L + 0.6, ys = [];
-  for (let y = yTop; y > hemY; y -= 0.7) ys.push(y);
-  ys.push(hemY);
-  const tee = ys.map((y) => {
-    const flare = Math.max(0, 1 - (y - hemY) / 8) * 0.5;
-    return { y, w: bW(y, "w") + O + flare, d: bW(y, "d") + O + flare };
-  });
-  const tW = interp(tee);
-  model.add(new THREE.Mesh(loft(tee, 80, PT, false, false), mBody));
-
-  const topY = (x) => {               /* tee surface height on the shoulder line (z = 0) */
-    for (let k = 1; k < tee.length; k++) {
-      if (tee[k].w >= x) {
-        const p0 = tee[k - 1], p1 = tee[k], t = (x - p0.w) / ((p1.w - p0.w) || 1);
-        return p0.y + (p1.y - p0.y) * Math.min(1, Math.max(0, t));
-      }
-    }
-    return tee[tee.length - 1].y;
-  };
-  const frontZ = (x, y) => {
-    const w = tW(y, "w"), d = tW(y, "d");
-    if (Math.abs(x) >= w) return 0;
-    return d * Math.pow(1 - Math.pow(Math.abs(x) / w, PT), 1 / PT);
-  };
-
-  /* collar rib (tee) or a standing collar band whose circumference is the shirt size (shirt) */
-  const nW = tW(yTop, "w"), nD = tW(yTop, "d");
-  const collar = new THREE.Mesh(new THREE.TorusGeometry(nW, 0.75, 10, 64), mTrim);
-  collar.rotation.x = Math.PI / 2 - 0.16; collar.scale.set(1, nD / nW, 1); collar.position.y = yTop - 0.2;
-  model.add(collar);
-  if (opts.shirt) {
-    const r = opts.collarCm / (2 * Math.PI), yc = yTop + 2.4;
-    const band = new THREE.Mesh(new THREE.CylinderGeometry(r, r + 0.5, 4.4, 64, 1, true), mShirtBody);
-    band.position.y = yc; model.add(band);
-    const btn = new THREE.Mesh(new THREE.SphereGeometry(0.45, 12, 8), mButton);
-    btn.scale.z = 0.5; btn.position.set(0, yc - 0.6, r + 0.35); model.add(btn);
-    for (let y = -6; y > hemY + 4; y -= 9) {
-      const b2 = new THREE.Mesh(new THREE.SphereGeometry(0.5, 12, 8), mButton);
-      b2.scale.z = 0.5; b2.position.set(0, y, frontZ(0, y) + 0.3); model.add(b2);
-    }
-    /* A: collar, a ring round the band */
-    const ptsA = [];
-    for (let j = 0; j < 120; j++) { const t = (j / 120) * Math.PI * 2; ptsA.push(new V3((r + 0.75) * Math.cos(t), yc + 0.4, (r + 0.75) * Math.sin(t))); }
-    meas.A.parts.push(tube(ptsA, 0.38, true, mMeas.A));
-    meas.A.anchor = () => {
-      const th = Math.atan2(camera.position.x, camera.position.z) + 0.7;
-      return new V3((r + 1.2) * Math.sin(th), yc + 0.4, (r + 1.2) * Math.cos(th));
-    };
-    meas.A.normal = null;
-  } else {
-    /* logo print on the chest */
-    const lz0 = frontZ(0, -8), lz1 = frontZ(0, -10);
-    const logo = new THREE.Mesh(new THREE.PlaneGeometry(6.6, 7.9), new THREE.MeshBasicMaterial({ map: logoTex, transparent: true, color: 0xe6e6e6, polygonOffset: true, polygonOffsetFactor: -4, depthWrite: false }));
-    logo.position.set(0, -9.5, frontZ(0, -9.5) + 0.15);
-    logo.rotation.x = Math.atan((lz0 - lz1) / 2);
-    model.add(logo);
-  }
-
-  /* arms + sleeves */
-  const ang = THREE.MathUtils.degToRad(13);
-  const armR = 4.4 + (a - 16) * 0.13;
-  const rTop = armR + 2.3, rBot = armR + 1.6;
-  const dirR = new V3(Math.sin(ang), -Math.cos(ang), 0), perpR = new V3(Math.cos(ang), Math.sin(ang), 0);
-  const S0r = new V3(sh - armR * 0.5, -10, 0).addScaledVector(dirR, -1.2);
-  const SP = S0r.clone().addScaledVector(perpR, rTop + 0.35);
-
-  /* C: center back of collar, round the neckline, along the shoulder seam to the shoulder point */
-  const seam = [];
-  for (let k = 0; k <= 6; k++) {
-    const t = -Math.PI / 2 + (k / 6) * (Math.PI / 2);
-    seam.push(new V3((nW + 0.4) * Math.cos(t), yTop + 0.35, (nD + 0.4) * Math.sin(t)));
-  }
-  for (let x = nW + 1.6; x < sh + O - 0.4; x += 1.2) seam.push(new V3(x, topY(x) + 0.45, 0));
-  seam.push(SP);
-  let seamLen = 0;
-  for (let k = 1; k < seam.length; k++) seamLen += seam[k].distanceTo(seam[k - 1]);
-  /* whatever is left of the spec sleeve length runs down the sleeve (a shirt sleeve runs to the wrist) */
-  const len = THREE.MathUtils.clamp(S - seamLen, 8, opts.shirt ? 70 : 40);
-  const armLen = opts.shirt ? len - 4 : 24;
-
-  for (const s of [1, -1]) {
-    const dir = new V3(s * Math.sin(ang), -Math.cos(ang), 0);
-    const A0 = new V3(s * (sh - armR * 0.5), -10, 0);
-    const arm = new THREE.Mesh(new THREE.CapsuleGeometry(armR, armLen, 8, 24), mForm);
-    arm.quaternion.setFromUnitVectors(UP, dir);
-    arm.position.copy(A0).addScaledVector(dir, armLen / 2 + armR * 0.7);
-    model.add(arm);
-    if (opts.sleeveless) continue; /* vest: bare arms, open armholes */
-
-    const S0 = A0.clone().addScaledVector(dir, -1.2);
-    const sleeve = new THREE.Mesh(new THREE.CylinderGeometry(rTop, rBot, len, 48, 1, true), mBody);
-    sleeve.quaternion.setFromUnitVectors(UP, dir.clone().negate());
-    sleeve.position.copy(S0).addScaledVector(dir, len / 2);
-    model.add(sleeve);
-    const shoulderCap = new THREE.Mesh(new THREE.SphereGeometry(rTop + 0.15, 40, 20), mBody);
-    shoulderCap.scale.set(1, 0.5, 1); shoulderCap.quaternion.copy(sleeve.quaternion); shoulderCap.position.copy(S0);
-    model.add(shoulderCap);
-
-    const cuff = new THREE.Mesh(new THREE.TorusGeometry(rBot, opts.shirt ? 0.9 : 0.55, 8, 48), mTrim);
-    cuff.quaternion.setFromUnitVectors(FWD, dir);
-    cuff.position.copy(S0).addScaledVector(dir, len - 0.3);
-    model.add(cuff);
-  }
-
-  if (opts.shirt) { /* only the collar is measured on a shirt */
-    for (const k in meas) for (const p of meas[k].parts) model.add(p);
-    scene.add(model); builtAt = performance.now();
-    return;
-  }
-
-  /* ---------- measurement lines ---------- */
-  /* A: length, from the shoulder beside the collar straight down the front to the hem */
-  const x0 = nW + 1.6, ya = topY(x0), ptsA = [];
-  for (let y = ya; y > hemY; y -= 0.8) ptsA.push(new V3(-x0, y + (y === ya ? 0.45 : 0), frontZ(x0, y) + 0.45));
-  ptsA.push(new V3(-x0, hemY, frontZ(x0, hemY) + 0.45));
-  meas.A.parts.push(tube(ptsA, 0.38, false, mMeas.A), dot(ptsA[0], mMeas.A), dot(ptsA[ptsA.length - 1], mMeas.A));
-  const aAnchor = ptsA[Math.floor(ptsA.length * 0.62)];
-  meas.A.anchor = () => aAnchor;
-  meas.A.normal = FWD;
-
-  /* B: chest tape, a level ring around the fullest part of the chest */
-  const yB = -19, wB = tW(yB, "w") + 0.6, dB = tW(yB, "d") + 0.6, ptsB = [];
-  for (let j = 0; j < 160; j++) { const q = sePoint(wB, dB, (j / 160) * Math.PI * 2, PT); ptsB.push(new V3(q[0], yB, q[1])); }
-  meas.B.parts.push(tube(ptsB, 0.55, true, mMeas.B));
-  meas.B.anchor = () => {
-    /* follow the side of the ring that faces the camera, on the side away from the sleeve tag */
-    const th0 = Math.atan2(camera.position.x, camera.position.z), th = th0 + (Math.cos(th0) >= 0 ? -0.8 : 0.8);
-    const q = sePoint(wB + 0.6, dB + 0.6, Math.PI / 2 - th, PT);
-    return new V3(q[0], yB, q[1]);
-  };
-  meas.B.normal = null;
-
-  if (opts.sleeveless) {
-    for (const k in meas) for (const p of meas[k].parts) model.add(p);
-    scene.add(model); builtAt = performance.now();
-    return;
-  }
-
-  /* C: sleeve, continue from the shoulder point down the outside of the sleeve to the hem */
-  const ptsC = seam.slice();
-  for (let k = 1; k <= 8; k++) {
-    const t = k / 8, r = rTop + (rBot - rTop) * t + 0.35;
-    ptsC.push(S0r.clone().addScaledVector(dirR, len * t).addScaledVector(perpR, r));
-  }
-  meas.C.parts.push(tube(ptsC, 0.38, false, mMeas.C), dot(ptsC[0], mMeas.C), dot(ptsC[ptsC.length - 1], mMeas.C));
-  const cEnd = ptsC[ptsC.length - 1];
-  meas.C.anchor = () => cEnd;
-  meas.C.normal = new V3(1, 0, 0);
-
+function finish() {
   for (const k in meas) for (const p of meas[k].parts) model.add(p);
   scene.add(model);
   builtAt = performance.now();
 }
+function positions(f) {
+  const pos = new Float32Array(M.base.length);
+  for (let i = 0; i < M.n; i++) { const q = f(M.base[i * 3], M.base[i * 3 + 1], M.base[i * 3 + 2], M.arm[i] / 255); pos[i * 3] = q[0]; pos[i * 3 + 1] = q[1]; pos[i * 3 + 2] = q[2]; }
+  return pos;
+}
+/* body context for one size: transformed vertices + slice lookups */
+function bodyCtx(f, pos) {
+  pos = pos || positions(f);
+  const L0 = M.L;
+  const X = new Float32Array(M.n), Y = new Float32Array(M.n), Z = new Float32Array(M.n);
+  for (let i = 0; i < M.n; i++) { X[i] = pos[i * 3]; Y[i] = pos[i * 3 + 1]; Z[i] = pos[i * 3 + 2]; }
+  const cut = makeSlicer(M.idx, M.n, (i) => M.arm[i] < 128, Y, X, Z);
+  const ring = (y) => fixRing(radial(hull2(cut(y)), 0, ZC));
+  const cutAll = makeSlicer(M.idx, M.n, () => true, Y, X, Z);
+  const yCut = (L0.shoulder[1] - 3) * f.kY;
+  /* round the shoulders a garment covers the deltoids too: above yCut the slice includes the arms, blended over 3 cm */
+  const ringSh = (y) => { if (y < yCut - 2) return ring(y); const a = ring(y), b = fixRing(radial(hull2(cutAll(y)), 0, ZC)), t = sm(yCut - 2, yCut + 1, y), o = new Float32Array(NA); for (let j = 0; j < NA; j++) o[j] = a[j] + (b[j] - a[j]) * t; return o; };
+  const L = M.L;
+  const P = (p, w = 0, s = 1) => f.pt(p, w, s);
+  return { f, pos, X, Y, Z, ring, ringSh, P, crotch: L.crotch * f.kY, ground: L.ground * f.kY, armpit: (L.shoulder[1] - 9.5) * f.kY };
+}
+/* chest scale k so that ring(k) = k * r0 + ease measures `circ` all the way round */
+function kForChest(circ, ease, y, opts = {}) {
+  const c1 = bodyCtx(fitFn(M, { ...opts, k: 1, kN: 1 }));
+  const r0 = c1.ring(y);
+  return solveK(circ, (k) => perimeterR(addR(mulR(r0, k), ease)));
+}
+
+/* ---------- a garment shell: rings {y, r[NA]} evenly spaced, centred on (0, ZC) ---------- */
+class Shell {
+  constructor(y0, y1, step, fn) {
+    this.y0 = y0; this.step = step; this.rings = [];
+    for (let y = y0; y >= y1 - 1e-6; y -= step) this.rings.push(fn(y));
+    this.y1 = y0 - (this.rings.length - 1) * step;
+  }
+  r(y, j) {
+    const t = Math.min(this.rings.length - 1, Math.max(0, (this.y0 - y) / this.step)), a = Math.floor(t), b = Math.min(a + 1, this.rings.length - 1), u = t - a;
+    return this.rings[a][j] * (1 - u) + this.rings[b][j] * u;
+  }
+  ringAt(y) { const o = new Float32Array(NA); for (let j = 0; j < NA; j++) o[j] = this.r(y, j); return o; }
+  pt(j, y, off = 0) { const r = this.r(y, j) + off, t = ang(j); return new V3(r * Math.sin(t), y, ZC + r * Math.cos(t)); }
+  halfW(y) { return this.r(y, NA / 4); }
+  /* z of the front (or back) surface where it crosses x */
+  surfZ(x, y, back = false) {
+    const ax = Math.abs(x); let pj = back ? NA / 2 : 0, px = 0, pz = this.r(y, pj) * (back ? -1 : 1);
+    const dir = back ? -1 : 1;
+    for (let s = 1; s <= NA / 4; s++) {
+      const j = back ? NA / 2 - s : s, r = this.r(y, j), t = ang(j), cx = r * Math.sin(t), cz = r * Math.cos(t);
+      if (cx >= ax) { const u = (ax - px) / ((cx - px) || 1); return ZC + pz + (cz - pz) * u; }
+      px = cx; pz = cz;
+    }
+    return ZC + dir * 0;
+  }
+  frontZ(x, y) { return this.surfZ(x, y, false); }
+  backZ(x, y) { return this.surfZ(x, y, true); }
+  /* height of the shoulder line (top of the shell) at half-width x */
+  topY(x) {
+    let prevY = this.y0, prevW = this.halfW(this.y0);
+    if (prevW >= x) return this.y0;
+    for (let k = 1; k < this.rings.length; k++) {
+      const y = this.y0 - k * this.step, w = this.rings[k][NA / 4];
+      if (w >= x) return prevY + (y - prevY) * (x - prevW) / ((w - prevW) || 1);
+      prevY = y; prevW = w;
+    }
+    return this.y1;
+  }
+  /* mesh: every column runs from top(theta) down to bottom(theta). Seam at the back.
+     hole(x, y, z) marks an opening (vest armholes): each column skips one y-interval, found exactly, so the edge is smooth. */
+  mesh(mat, { top, bottom, rows = 110, hole = null, off = 0 } = {}) {
+    const C = NA, pos = [], idx = [], gaps = [];
+    const ra = hole ? Math.round(rows * 0.3) : rows, rb = hole ? rows - ra : 0, per = hole ? ra + rb + 2 : rows + 1;
+    if (hole) { /* the open interval of every column; closed columns put a zero-height gap next to their neighbour's */
+      for (let c = 0; c <= C; c++) {
+        const j = (c + C / 2) % C, t = ang(j), tt = t > Math.PI ? t - Math.PI * 2 : t, yt = top(tt), yb = bottom(tt);
+        let hi = null, lo = null;
+        for (let y = yt - 0.05; y > yb; y -= 0.2) {
+          const r = this.r(y, j);
+          if (hole(r * Math.sin(t), y, ZC + r * Math.cos(t))) { if (hi === null) hi = y + 0.1; lo = y - 0.1; }
+        }
+        gaps.push(hi === null ? null : [Math.min(hi, yt - 0.02), Math.max(lo, yb + 0.02)]);
+      }
+      for (let c = 0; c <= C; c++) if (!gaps[c]) {
+        let best = null, bd = 1e9;
+        for (let d = 1; d <= C; d++) for (const e of [c - d, c + d]) { const g = gaps[(e + C + 1) % (C + 1)]; if (g && g.length === 2 && d < bd) { bd = d; best = g; } }
+        const yt = top(0), mid = best ? (best[0] + best[1]) / 2 : yt - 10;
+        gaps[c] = [mid, mid, true];
+      }
+    }
+    for (let c = 0; c <= C; c++) {
+      const j = (c + C / 2) % C, t = ang(j), tt = t > Math.PI ? t - Math.PI * 2 : t;
+      const yt = top(tt), yb = bottom(tt), ys = [];
+      if (!hole) for (let i = 0; i <= rows; i++) ys.push(yt + (yb - yt) * (i / rows));
+      else {
+        const [hi, lo] = gaps[c], h2 = Math.min(hi, yt - 0.01), l2 = Math.max(Math.min(lo, h2), yb + 0.01);
+        for (let i = 0; i <= ra; i++) ys.push(yt + (h2 - yt) * (i / ra));
+        for (let i = 0; i <= rb; i++) ys.push(l2 + (yb - l2) * (i / rb));
+      }
+      for (const y of ys) { const r = this.r(y, j) + off; pos.push(r * Math.sin(t), y, ZC + r * Math.cos(t)); }
+    }
+    for (let c = 0; c < C; c++) for (let i = 0; i < per - 1; i++) {
+      if (hole && i === ra) continue; /* the opening */
+      const a = c * per + i, b = a + per;
+      idx.push(a, a + 1, b, b, a + 1, b + 1);
+    }
+    const rows2 = per - 1;
+    const g = geo(pos, idx), n = g.attributes.normal;
+    for (let i = 0; i <= rows2; i++) { /* smooth the back seam */
+      const a = i, b = C * per + i, v = new V3(n.getX(a) + n.getX(b), n.getY(a) + n.getY(b), n.getZ(a) + n.getZ(b)).normalize();
+      n.setXYZ(a, v.x, v.y, v.z); n.setXYZ(b, v.x, v.y, v.z);
+    }
+    return new THREE.Mesh(g, mat);
+  }
+}
+
+/* ---------- sleeves and legs: tubes round a moving centre ---------- */
+function tubeRings(rings, mat) { /* rings: [{c: V3, u: V3, w: V3, r: Float32Array}] -> closed-ring tube */
+  const pos = [], idx = [], n = NA + 1;
+  for (const R of rings) for (let c = 0; c <= NA; c++) {
+    const j = c % NA, t = ang(j), r = R.r[j];
+    const p = R.c.clone().addScaledVector(R.u, r * Math.sin(t)).addScaledVector(R.w, r * Math.cos(t));
+    pos.push(p.x, p.y, p.z);
+  }
+  for (let i = 0; i < rings.length - 1; i++) for (let c = 0; c < NA; c++) { const a = i * n + c, b = a + n; idx.push(a, b, a + 1, a + 1, b, b + 1); }
+  return new THREE.Mesh(geo(pos, idx), mat);
+}
+/* arm frame for side s: axis a (shoulder to elbow), u = outward-up, w = forward */
+function armFrame(ctx, s) {
+  const S = ctx.P(M.L.shoulder, 0.5, s), E = ctx.P(M.L.elbow, 1, s), W = ctx.P(M.L.wrist, 1, s);
+  const a = E.clone().sub(S).normalize();
+  const sa = Math.abs(a.x) / Math.hypot(a.x, a.y), ca = Math.abs(a.y) / Math.hypot(a.x, a.y);
+  const u = new V3(s * ca, sa, 0); u.sub(a.clone().multiplyScalar(u.dot(a))).normalize();
+  const w = new V3().crossVectors(s > 0 ? a : u, s > 0 ? u : a).normalize();
+  if (w.z < 0) w.negate();
+  return { S, E, W, a, u, w };
+}
+/* sleeve rings along the arm from s0 to s1 (cm along the axis), from the arm's own convex slices, never narrower going up */
+function sleeveRings(ctx, s, s0, s1, ease0, ease1, step = 1) {
+  /* two straight segments: upper arm (shoulder to elbow) and forearm (elbow to wrist); every slice is square to its own segment */
+  const F = armFrame(ctx, s), list = [];
+  const a2 = F.W.clone().sub(F.E).normalize();
+  const u2 = F.u.clone().sub(a2.clone().multiplyScalar(F.u.dot(a2))).normalize();
+  const w2 = new V3().crossVectors(a2, u2).normalize(); if (w2.dot(F.w) < 0) w2.negate();
+  const lenU = F.E.clone().sub(F.S).dot(F.a), lenF = F.W.distanceTo(F.E) - 1.5;
+  const seg = [[F.S, F.a, F.u, F.w], [F.E, a2, u2, w2]].map(([O, ax, u, w]) => {
+    const SA = new Float32Array(M.n), UA = new Float32Array(M.n), WA = new Float32Array(M.n);
+    for (let i = 0; i < M.n; i++) {
+      const dx = ctx.X[i] - O.x, dy = ctx.Y[i] - O.y, dz = ctx.Z[i] - O.z;
+      SA[i] = dx * ax.x + dy * ax.y + dz * ax.z; UA[i] = dx * u.x + dy * u.y + dz * u.z; WA[i] = dx * w.x + dy * w.y + dz * w.z;
+    }
+    return { O, ax, u, w, cut: makeSlicer(M.idx, M.n, (i) => M.arm[i] >= 200 && ctx.X[i] * s > 0, SA, UA, WA) };
+  });
+  const raw = [];
+  for (let t = s0; t <= s1 + 1e-6; t += step) {
+    const g = t <= lenU ? seg[0] : seg[1], lt = t <= lenU ? THREE.MathUtils.clamp(t, 2, lenU) : Math.min(t - lenU, lenF);
+    raw.push({ t, g, lt: t <= lenU ? t : t - lenU, r: fixRing(radial(hull2(g.cut(lt)), 0, 0), 2) });
+  }
+  for (let k = raw.length - 2; k >= 0; k--) raw[k].r = maxR(raw[k].r, raw[k + 1].r); /* a sleeve hangs, it never narrows toward the shoulder */
+  for (const R of raw) {
+    const e = lerp(ease0, ease1, (R.t - s0) / ((s1 - s0) || 1));
+    let mean = 0; for (let j = 0; j < NA; j++) mean += R.r[j]; mean /= NA;
+    for (let j = 0; j < NA; j++) R.r[j] = 0.55 * R.r[j] + 0.45 * mean + e;
+    list.push({ t: R.t, c: R.g.O.clone().addScaledVector(R.g.ax, R.lt), u: R.g.u, w: R.g.w, r: R.r });
+  }
+  return { F, rings: list };
+}
+
+/* both trouser legs at height y, as one ring round (0, ZC) */
+function legsRing(LW, y) {
+  const pts = [];
+  for (const leg of LW.legs) {
+    const R = leg.rings.reduce((p, q) => (Math.abs(q.c.y - y) < Math.abs(p.c.y - y) ? q : p));
+    for (let j = 0; j < NA; j += 2) { const t = ang(j); pts.push([R.c.x + R.r[j] * Math.sin(t), R.c.z + R.r[j] * Math.cos(t)]); }
+  }
+  return fixRing(radial(hull2(pts), 0, ZC), 0);
+}
+
+/* ---------- legwear: seat + two legs, and shoes ---------- */
+function legwear(ctx, style, opt = {}) {
+  const { f } = ctx, L = M.L;
+  const jog = style === "jogger";
+  const mat = opt.mat || (jog ? mTee : style === "chino" ? mChino : mTrouser);
+  const eSeat = jog ? 2.0 : 1.3, eLeg = jog ? 2.2 : 1.8;
+  const yW = (L.pelvis[1] + 13) * f.kY, yC = ctx.crotch;
+  const hemY = jog ? (L.ankle[1] + 1.5) * f.kY : (L.ankle[1] - 1.5) * f.kY;
+  const seat = new Shell(yW + 0.6, yC + 3.5, 0.6, (y) => {
+    let r = addR(ctx.ring(y), eSeat);
+    if (opt.inner && y > opt.innerTo) r = maxR(r, addR(opt.inner(y), 0.35));
+    return r;
+  });
+  model.add(seat.mesh(mat, { top: (t) => yW + 0.6 + 0.8 * Math.max(0, -Math.cos(t)), bottom: () => yC + 3.5, rows: 40 }));
+  const legs = [];
+  for (const s of [1, -1]) {
+    const cut = makeSlicer(M.idx, M.n, (i) => M.arm[i] < 128 && ctx.X[i] * s > 0 && ctx.Y[i] < yC + 10, ctx.Y, ctx.X, ctx.Z);
+    const hip = ctx.P(L.hip, 0, s), ank = ctx.P(L.ankle, 0, s);
+    const cen = (y) => { const t = Math.min(1, Math.max(0, (hip.y - y) / (hip.y - ank.y))); return new V3(lerp(hip.x, ank.x, t), y, lerp(hip.z, ank.z, t)); };
+    const rings = []; let prev = null;
+    for (let y = yC + 6; y >= hemY - 1e-6; y -= 0.7) {
+      const c = cen(y), body = fixRing(radial(hull2(cut(y)), c.x, c.z), 1);
+      let r = addR(body, eLeg);
+      if (prev && !jog && y < yC - 3) r = maxR(r, mulR(prev, 0.996)); /* trousers fall straight from the thigh */
+      if (jog && y < hemY + 5) r = mulR(r, lerp(1, 0.9, sm(hemY + 5, hemY + 3, y))); /* gathered cuff */
+      prev = r; rings.push({ c, u: new V3(1, 0, 0), w: new V3(0, 0, 1), r });
+    }
+    model.add(tubeRings(rings, mat));
+    if (jog) { /* rib cuff */
+      const cr = rings.filter((R) => R.c.y < hemY + 3.5).map((R) => ({ ...R, r: addR(R.r, 0.15) }));
+      model.add(tubeRings(cr, mRib));
+    }
+    legs.push({ s, rings, cen });
+  }
+  /* waistband: rib for joggers, a belt for trousers */
+  const wbTop = yW + 0.6, wbBot = yW - (jog ? 4 : 3.4);
+  const band = new Shell(wbTop + 0.8, wbBot, 0.4, (y) => addR(seat.ringAt(Math.min(y, seat.y0)), 0.35));
+  model.add(band.mesh(jog ? mRib : mBelt, { top: (t) => wbTop + 0.8 * Math.max(0, -Math.cos(t)), bottom: () => wbBot, rows: 6 }));
+  if (opt.covered) { /* a top hangs over the waistband: no buckle or cords to poke through */ }
+  else if (!jog) {
+    const bz = band.frontZ(0, wbTop - 1.7);
+    const buckle = new THREE.Mesh(new THREE.BoxGeometry(4.2, 3.4, 0.5), mBuckle); buckle.position.set(0, wbTop - 1.6, bz + 0.25); model.add(buckle);
+  } else {
+    for (const s of [1, -1]) {
+      const z = band.frontZ(1.4, wbTop - 2);
+      model.add(solid([new V3(s * 1.2, wbTop - 2, z + 0.3), new V3(s * 1.8, wbTop - 7, z + 0.9), new V3(s * 1.4, wbTop - 12, z + 1.1)], 0.28, false, mShirtBody, 6));
+    }
+  }
+  return { seat, band, legs, yW: wbTop, hemY, yC };
+}
+
+/* ---------- shoes: oxford (formal) or sneaker, built round a last; heel at z = 0, toe at +z, sole on y = 0.
+   side = +1 left (outer side +x), -1 right. fit = optional foot profile so the shoe always covers the foot. ---------- */
+const mOx = new THREE.MeshPhysicalMaterial({ color: 0x33190d, roughness: 0.42, clearcoat: 0.5, clearcoatRoughness: 0.3, side: THREE.DoubleSide });
+const mOxSole = new THREE.MeshStandardMaterial({ color: 0x1a120c, roughness: 0.65 });
+const mOxHeel = new THREE.MeshStandardMaterial({ color: 0x2a1b12, roughness: 0.55 });
+const mLace = new THREE.MeshStandardMaterial({ color: 0x1c140f, roughness: 0.6 });
+const mLining = new THREE.MeshStandardMaterial({ color: 0x5a3c26, roughness: 0.8, side: THREE.DoubleSide });
+const mSnk = new THREE.MeshPhysicalMaterial({ color: 0xf3f1ed, roughness: 0.55, sheen: 0.3, side: THREE.DoubleSide });
+const mSnkMid = new THREE.MeshStandardMaterial({ color: 0xfbfbf9, roughness: 0.75 });
+const mSnkOut = new THREE.MeshStandardMaterial({ color: 0x2a2623, roughness: 0.9 });
+const mSnkLace = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.8 });
+const mSnkLining = new THREE.MeshStandardMaterial({ color: 0xdedad3, roughness: 0.9, side: THREE.DoubleSide });
+
+/* monotone cubic through [x, y] points (Fritsch-Carlson): smooth, never overshoots */
+function pchip(P) {
+  const n = P.length, d = [], m = new Array(n).fill(0);
+  for (let k = 0; k < n - 1; k++) d.push((P[k + 1][1] - P[k][1]) / (P[k + 1][0] - P[k][0]));
+  m[0] = d[0]; m[n - 1] = d[n - 2];
+  for (let k = 1; k < n - 1; k++) m[k] = d[k - 1] * d[k] <= 0 ? 0 : (2 * d[k - 1] * d[k]) / (d[k - 1] + d[k]);
+  return (x) => {
+    if (x <= P[0][0]) return P[0][1];
+    for (let k = 0; k < n - 1; k++) if (x <= P[k + 1][0]) {
+      const h = P[k + 1][0] - P[k][0], t = (x - P[k][0]) / h, t2 = t * t, t3 = t2 * t;
+      return (2 * t3 - 3 * t2 + 1) * P[k][1] + (t3 - 2 * t2 + t) * h * m[k] + (-2 * t3 + 3 * t2) * P[k + 1][1] + (t3 - t2) * h * m[k + 1];
+    }
+    return P[n - 1][1];
+  };
+}
+function makeShoe(style, Ls, side = 1, fit = null) {
+  const ox = style === "oxford", g = new THREE.Group();
+  const Ws = Ls * (ox ? 0.365 : 0.395);
+  const base = (t, p) => {
+    let w;
+    if (t < 0.07) w = 0.66 * Math.sqrt(Math.max(0, 1 - Math.pow((0.07 - t) / 0.07, 2)));
+    else if (t < 0.68) w = 0.66 + 0.34 * Math.sin(((t - 0.07) / 0.61) * Math.PI / 2);
+    else w = Math.pow(Math.max(0, 1 - Math.pow((t - 0.68) / 0.32, p)), 0.5);
+    return w;
+  };
+  const P = ox ? 2.0 : 2.7;
+  const outer = (t) => Math.max(0.05, (Ws / 2) * base(t, P) * (1 + 0.05 * Math.sin(Math.PI * t)) * (fit ? Math.max(1, fit.wOut(t) / ((Ws / 2) * base(t, P) * 0.92 || 1)) : 1));
+  const inner = (t) => Math.max(0.05, (Ws / 2) * base(t, P) * (1 - 0.07 * Math.sin(Math.PI * Math.min(1, Math.max(0, (t - 0.25) / 0.5)))) * (fit ? Math.max(1, fit.wIn(t) / ((Ws / 2) * base(t, P) * 0.9 || 1)) : 1));
+  /* sole lift: oxford sits on a 2.4 cm heel, sneaker on a thick flat midsole; the toe springs up */
+  const lift = (t) => (ox ? 2.4 * (1 - sm(0.22, 0.58, t)) : 0) + 0.9 * Math.pow(Math.max(0, (t - 0.78) / 0.22), 2);
+  const soleT = ox ? 1.1 : 3.0;
+  const N = 90, xAt = (t, sgn) => side * sgn * (sgn > 0 ? outer(t) : inner(t));
+  const outline = [];
+  for (let k = 0; k <= N; k++) { const t = k / N; outline.push([xAt(t, 1), t * Ls]); }
+  for (let k = N; k >= 0; k--) { const t = k / N; outline.push([xAt(t, -1), t * Ls]); }
+  /* sole slab, bent to the lift line */
+  const slab = (thick, yBase, mat, grow = 0) => {
+    const sh = new THREE.Shape();
+    outline.forEach((p, k) => { const t = p[1] / Ls, cx = p[0] * (1 + grow / Math.max(1, Math.abs(p[0]))); k ? sh.lineTo(cx, -p[1]) : sh.moveTo(cx, -p[1]); });
+    const sg = new THREE.ExtrudeGeometry(sh, { depth: thick, bevelEnabled: true, bevelThickness: Math.min(0.35, thick / 3), bevelSize: 0.3, bevelSegments: 3, curveSegments: 4 });
+    sg.rotateX(-Math.PI / 2);
+    const pa = sg.attributes.position;
+    for (let k = 0; k < pa.count; k++) { const t = Math.min(1, Math.max(0, pa.getZ(k) / Ls)); pa.setY(k, pa.getY(k) + yBase + lift(t)); }
+    sg.computeVertexNormals();
+    return new THREE.Mesh(sg, mat);
+  };
+  if (ox) {
+    g.add(slab(soleT, 0.05, mOxSole));
+    /* stacked heel under the back */
+    const hs = new THREE.Shape(); const hk = 30;
+    for (let k = 0; k <= hk; k++) { const t = 0.235 * k / hk; const p = [xAt(t, 1) * 0.96, -t * Ls]; k ? hs.lineTo(p[0], p[1]) : hs.moveTo(p[0], p[1]); }
+    for (let k = hk; k >= 0; k--) { const t = 0.235 * k / hk; hs.lineTo(xAt(t, -1) * 0.96, -t * Ls); }
+    const hg = new THREE.ExtrudeGeometry(hs, { depth: 2.4, bevelEnabled: false }); hg.rotateX(-Math.PI / 2);
+    g.add(new THREE.Mesh(hg, mOxHeel));
+    const tl = new THREE.ExtrudeGeometry(hs, { depth: 0.35, bevelEnabled: false }); tl.rotateX(-Math.PI / 2);
+    g.add(new THREE.Mesh(tl, mOxSole));
+  } else {
+    g.add(slab(0.55, 0, mSnkOut, 0.1));
+    g.add(slab(soleT - 0.55, 0.55, mSnkMid, 0.15));
+  }
+  const yTopSole = (t) => (ox ? 0.05 + soleT + 0.35 : soleT) + lift(t);
+  /* welt stitch line round the top of the sole */
+  const welt = outline.filter((_, k) => k % 3 === 0).map((p) => new V3(p[0] * 1.0, yTopSole(p[1] / Ls) + 0.05, p[1]));
+  g.add(solid(welt, ox ? 0.17 : 0.12, true, ox ? mOxSole : mSnkMid, 6));
+
+  /* upper height over the last: heel counter, instep, toe box */
+  const HT = ox ? [[0, 5.8], [0.05, 6.7], [0.28, 6.9], [0.44, 7.4], [0.6, 6.2], [0.78, 4.3], [0.9, 3.2], [0.965, 2.3], [1, 0.5]]
+                : [[0, 6.4], [0.06, 7.2], [0.3, 7.2], [0.42, 8.2], [0.56, 7.4], [0.76, 5.0], [0.9, 3.9], [0.97, 2.8], [1, 0.5]];
+  const htab = pchip(HT); /* smooth through the points: no ridges across the vamp */
+  const H = (t) => (fit && t > 0.36 ? Math.max(htab(t), fit.top(t) - yTopSole(t) + 0.7) : htab(t));
+  const collar = (t) => (ox ? 5.7 : 6.0) + (t < 0.05 ? 1.0 * (1 - t / 0.05) : 0) + 1.4 * sm(0.26, 0.4, t);
+  const OPEN = 0.4, rows = 120, M_ = 36;
+  const P3 = (t, ph) => { /* point on the upper: ph 0 = inner sole edge, PI = outer sole edge */
+    const xi = xAt(t, -1) * 0.985, xo = xAt(t, 1) * 0.985, u = (1 - Math.cos(ph)) / 2, s = Math.sin(ph);
+    const bulge = 1 + 0.05 * Math.pow(s, 0.5) * (1 - s);
+    return new V3(lerp(xi, xo, u) * bulge, yTopSole(t) + H(t) * Math.pow(s, 0.62), t * Ls);
+  };
+  const phiAt = (t) => { const c = Math.min(0.999, collar(t) / H(t)); return Math.asin(Math.pow(c, 1 / 0.62)); };
+  /* walls round the heel (opening on top), then the closed vamp */
+  const grid = (t0, t1, ph0, ph1, mat) => {
+    const pos = [], idx = [], R = Math.max(2, Math.round(rows * (t1 - t0)));
+    for (let r = 0; r <= R; r++) { const t = t0 + (t1 - t0) * r / R; for (let c = 0; c <= M_; c++) { const p = P3(t, ph0(t) + (ph1(t) - ph0(t)) * c / M_); pos.push(p.x, p.y, p.z); } }
+    for (let r = 0; r < R; r++) for (let c = 0; c < M_; c++) { const a = r * (M_ + 1) + c, b = a + M_ + 1; idx.push(a, b, a + 1, a + 1, b, b + 1); }
+    g.add(new THREE.Mesh(geo(pos, idx), mat));
+  };
+  const upMat = ox ? mOx : mSnk;
+  grid(0, OPEN, () => 0, (t) => phiAt(t), upMat);
+  grid(0, OPEN, (t) => Math.PI - phiAt(t), () => Math.PI, upMat);
+  grid(OPEN, 1, () => 0, () => Math.PI, upMat);
+  /* collar edge piping + lining */
+  for (const sgn of [1, -1]) {
+    const pts = []; for (let k = 0; k <= 24; k++) { const t = OPEN * k / 24; pts.push(P3(t, sgn > 0 ? phiAt(t) : Math.PI - phiAt(t))); }
+    g.add(solid(pts, 0.22, false, upMat, 6));
+  }
+  const back = []; for (let k = 0; k <= 12; k++) back.push(P3(0.004, phiAt(0.004) + (Math.PI - 2 * phiAt(0.004)) * k / 12));
+  g.add(solid(back, 0.22, false, upMat, 6));
+  const ins = new THREE.Shape(); outline.forEach((p, k) => { if (p[1] / Ls > OPEN + 0.05) return; k ? ins.lineTo(p[0] * 0.9, -p[1]) : ins.moveTo(p[0] * 0.9, -p[1]); });
+  const ig = new THREE.ShapeGeometry(ins); ig.rotateX(-Math.PI / 2);
+  const insole = new THREE.Mesh(ig, ox ? mLining : mSnkLining); insole.position.y = yTopSole(0.15) + 0.05; g.add(insole);
+
+  /* lacing on the instep: closed bar lacing (oxford) or criss-cross over a tongue (sneaker) */
+  const lt0 = OPEN, lt1 = ox ? 0.6 : 0.64, gap = ox ? 0.35 : 1.0, nL = ox ? 5 : 6;
+  const onTop = (t, x, off) => { const p = P3(t, Math.PI / 2); return new V3(x, p.y + off, t * Ls); };
+  if (!ox) { /* tongue rising out of the opening */
+    const tg = []; for (let k = 0; k <= 10; k++) { const t = lerp(0.3, OPEN + 0.02, k / 10); tg.push(onTop(t, 0, 0.4 + 1.6 * (1 - k / 10))); }
+    const tw = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(tg), 20, 0.5, 8), mSnk); tw.scale.x = 3.2; g.add(tw);
+  }
+  for (const sgn of [1, -1]) { /* lace-panel edges */
+    const pts = []; for (let k = 0; k <= 12; k++) { const t = lerp(lt0, lt1, k / 12); pts.push(onTop(t, sgn * (gap + 0.2), 0.12)); }
+    g.add(solid(pts, ox ? 0.14 : 0.18, false, ox ? mOx : mSnk, 6));
+  }
+  for (let k = 0; k < nL; k++) {
+    const t = lerp(lt0 + 0.02, lt1 - 0.015, k / (nL - 1)), y = onTop(t, 0, 0).y;
+    for (const sgn of [1, -1]) { const e = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.07, 6, 12), mBuckle); e.rotation.x = Math.PI / 2; e.position.set(sgn * (gap + 0.45), y + 0.2, t * Ls); g.add(e); }
+    if (ox) g.add(solid([new V3(-(gap + 0.45), y + 0.28, t * Ls), new V3(0, y + 0.36, t * Ls), new V3(gap + 0.45, y + 0.28, t * Ls)], 0.1, false, mLace, 5));
+    else if (k < nL - 1) {
+      const t2 = lerp(lt0 + 0.02, lt1 - 0.015, (k + 1) / (nL - 1)), y2 = onTop(t2, 0, 0).y;
+      for (const sgn of [1, -1]) g.add(solid([new V3(sgn * (gap + 0.45), y + 0.3, t * Ls), new V3(0, (y + y2) / 2 + 0.5, (t + t2) / 2 * Ls), new V3(-sgn * (gap + 0.45), y2 + 0.3, t2 * Ls)], 0.13, false, mSnkLace, 5));
+    }
+  }
+  if (!ox) { /* a bow at the top eyelets */
+    const t = lt0 + 0.02, y = onTop(t, 0, 0).y + 0.6;
+    for (const sgn of [1, -1]) g.add(solid([new V3(0, y, t * Ls), new V3(sgn * 1.4, y + 0.5, t * Ls - 0.9), new V3(sgn * 2.2, y - 0.2, t * Ls - 0.3), new V3(0, y, t * Ls)], 0.12, false, mSnkLace, 5));
+  }
+  /* toe cap seam (oxford) / toe overlay (sneaker), and a heel tab */
+  const capT = ox ? 0.8 : 0.78, cap = [];
+  for (let k = 0; k <= 30; k++) { const ph = (k / 30) * Math.PI; const t = capT + (ox ? 0.035 : 0.02) * Math.sin(ph); cap.push(P3(t, ph).add(new V3(0, 0.03, 0))); }
+  g.add(solid(cap, ox ? 0.07 : 0.1, false, ox ? mOxSole : mSnkMid, 5));
+  const tab = []; for (let k = 0; k <= 10; k++) { const p = P3(0.002, Math.PI / 2 + (k / 10 - 0.5) * 0.5); tab.push(new V3(p.x, collar(0) * 0.5 + yTopSole(0) + (k / 10) * 0 , -0.25)); }
+  if (!ox) { const ht = new THREE.Mesh(new THREE.BoxGeometry(2.2, 3.6, 0.6), mSnkOut); ht.position.set(0, yTopSole(0) + collar(0) - 1.2, -0.15); g.add(ht); }
+  g.userData = { Ls, ytop: yTopSole, H };
+  return g;
+}
+/* shoes on the man: fitted to each foot */
+function shoesOn(ctx, style) {
+  const L = M.L, out = [];
+  for (const s of [1, -1]) {
+    const ank = ctx.P(L.ankle, 0, s), ids = [];
+    for (let i = 0; i < M.n; i++) if (M.arm[i] < 128 && ctx.X[i] * s > 0 && ctx.Y[i] < ank.y + 2) ids.push(i);
+    let heel = null, toe = null;
+    for (const i of ids) { const z = ctx.pos[i * 3 + 2]; if (!heel || z < heel.z) heel = new V3(ctx.pos[i * 3], ctx.pos[i * 3 + 1], z); if (!toe || z > toe.z) toe = new V3(ctx.pos[i * 3], ctx.pos[i * 3 + 1], z); }
+    const dir = new V3(toe.x - heel.x, 0, toe.z - heel.z), len = dir.length(); dir.normalize();
+    const perp = new V3(dir.z, 0, -dir.x).multiplyScalar(s); /* toward the outer side */
+    const NB = 24, wO = new Float32Array(NB), wI = new Float32Array(NB), tp = new Float32Array(NB).fill(-1e9);
+    const Ls = len + 2.0, h0 = heel.clone().addScaledVector(dir, -1.0);
+    for (const i of ids) {
+      const p = new V3(ctx.pos[i * 3], ctx.pos[i * 3 + 1], ctx.pos[i * 3 + 2]).sub(h0);
+      const t = Math.min(NB - 1, Math.max(0, Math.floor((p.dot(dir) / Ls) * NB))), lat = p.dot(perp);
+      wO[t] = Math.max(wO[t], lat); wI[t] = Math.max(wI[t], -lat); tp[t] = Math.max(tp[t], p.y + ctx.pos[i * 3 + 1] - ctx.pos[i * 3 + 1] + h0.y - ctx.ground);
+    }
+    const at = (A) => (t) => { const x = Math.min(NB - 1.001, Math.max(0, t * NB - 0.5)), a = Math.floor(x); return lerp(A[a], A[a + 1], x - a); };
+    const fit = { wOut: (t) => at(wO)(t) + 0.55, wIn: (t) => at(wI)(t) + 0.55, top: at(tp) };
+    const shoe = makeShoe(style, Ls, s, fit);
+    shoe.position.set(h0.x, ctx.ground, h0.z);
+    shoe.rotation.y = Math.atan2(dir.x, dir.z);
+    model.add(shoe); out.push(shoe);
+  }
+  return out;
+}
+
+/* ---------- tops: tee, gym tee, gym vest, dress shirt (on the man, with trousers and shoes) ---------- */
+const O = 1.6;
+function buildTop(i, opts = {}) {
+  resetModel();
+  const P = FV.data, shirt = !!opts.shirt, vest = !!P.sleeveless;
+  const kY = 1.03, yB0 = M.L.shoulder[1] - 9.5, yB = yB0 * kY;
+  let k, kN;
+  if (shirt) { /* the collar is the size: neck ring (+ room for a finger) = collar, body grows with the neck */
+    const c1 = bodyCtx(fitFn(M, { k: 1, kN: 1, kY }));
+    const n0 = perimeterR(c1.ring(3.3));
+    kN = THREE.MathUtils.clamp((opts.collarCm - 2.4) / n0, 0.85, 1.35);
+    const r0 = c1.ring(yB); k = solveK(2.5 * opts.collarCm, (q) => perimeterR(addR(mulR(r0, q), 1.9))); /* a 41 collar wears about a 105 cm shirt chest */
+  } else {
+    const Wcm = P.dims.width.cm[i];
+    k = kForChest(2 * Wcm, O, yB, { kY }); kN = Math.sqrt(k);
+  }
+  const f = fitFn(M, { k, kN, kY });
+  const man = buildMan(M, f); model.add(man.group);
+  const ctx = bodyCtx(f, man.pos);
+  addShadow(model, ctx.ground - 0.05, 120, 0.8);
+  if (vest) delete meas.C;
+  if (shirt) meas = { A: { parts: [] } };
+
+  /* shell: follows the body to the chest, then falls straight (a little taper on fitted cuts) */
+  const L = shirt ? 0 : P.dims.length.cm[i], S = P.dims.sleeve ? P.dims.sleeve.cm[i] : 0;
+  const yTop = 0.9, ease = shirt ? 1.5 : O;
+  const lowWaist = (M.L.pelvis[1] + 13) * kY;
+  const hemY = shirt ? lowWaist - 6 : -L + 0.6;
+  const taper = FV.product === "gymtee" ? 0.07 : vest ? 0.05 : shirt ? 0.1 : 0.02;
+  const rChest = addR(ctx.ring(yB), ease);
+  const gym = FV.product === "gymtee" || vest;
+  const LW = shirt ? null : legwear(ctx, gym ? "jogger" : "chino", { covered: true });
+  const shell = new Shell(yTop + 1.2, hemY, 0.6, (y) => {
+    let r = addR(vest ? ctx.ring(y) : ctx.ringSh(y), ease);
+    if (y < yB) r = maxR(r, mulR(rChest, 1 - taper * Math.min(1, (yB - y) / 40)));
+    if (LW && y < LW.yW + 1.5) r = maxR(r, addR(y > LW.band.y1 ? LW.band.ringAt(y) : y > LW.seat.y1 ? LW.seat.ringAt(y) : legsRing(LW, y), 0.6)); /* hang over the trousers */
+    const fl = Math.max(0, 1 - (y - hemY) / 8) * 0.5; /* hem flare */
+    return addR(r, fl);
+  });
+  const neckDrop = vest ? 9 : shirt ? 0 : 3.2, backDrop = vest ? 2.5 : 0;
+  const topEdge = (t) => yTop - neckDrop * Math.pow(Math.max(0, Math.cos(t)), 2) - backDrop * Math.pow(Math.max(0, -Math.cos(t)), 2);
+  let hole = null;
+  const yArm = (yB0 - 3) * kY, yS = -1;
+  if (vest) { /* tank armholes: everything outside the 5 cm strap, down to just under the armpit, in a deep U */
+    const xs = shell.halfW(yTop) + 5.2;
+    hole = (x, y, z) => {
+      if (y < yArm) return false;
+      const zh = 14 * Math.sqrt(Math.min(1, Math.max(0, (y - yArm) / (yS - yArm))));
+      return Math.abs(x) > xs && Math.abs(z - ZC) < zh;
+    };
+  }
+  const body = shell.mesh(shirt ? mShirtBody : mTee, { top: topEdge, bottom: () => hemY, rows: 130, hole });
+  model.add(body);
+
+  /* neckline rib (tee / vest) or a standing collar band whose circumference is the shirt size */
+  const neckPts = [];
+  for (let c = 0; c <= 64; c++) { const j = Math.round((c / 64) * NA) % NA, t = ang(j), tt = t > Math.PI ? t - 2 * Math.PI : t; neckPts.push(shell.pt(j, topEdge(tt), 0.1)); }
+  model.add(solid(neckPts, shirt ? 0.5 : 0.7, true, shirt ? mShirtBody : mRib, 8));
+  const nW = shell.halfW(yTop), nWb = shell.halfW(yTop);
+  if (shirt) {
+    const r = opts.collarCm / (2 * Math.PI), yc = yTop + 2.4;
+    const band = new THREE.Mesh(new THREE.CylinderGeometry(r, r + 0.45, 4.4, 64, 1, true), mShirtBody);
+    band.position.set(0, yc, ZC); model.add(band);
+    const top = []; for (let c = 0; c <= 64; c++) { const t = (c / 64) * Math.PI * 2; top.push(new V3(r * Math.sin(t), yc + 2.2, ZC + r * Math.cos(t))); }
+    model.add(solid(top, 0.18, true, mShirtBody, 6));
+    for (const s of [1, -1]) { /* collar points */
+      const pts = [new V3(s * 0.4, yc + 2.1, ZC + r + 0.15), new V3(s * 2.6, yc - 2.2, ZC + r + 0.9), new V3(s * 4.4, yc - 1.4, ZC + r * 0.8)];
+      const g = new THREE.BufferGeometry().setFromPoints([pts[0], pts[1], pts[2], new V3(s * 3.8, yc + 2.1, ZC + r * 0.72)]);
+      g.setIndex([0, 1, 2, 0, 2, 3]); g.computeVertexNormals(); model.add(new THREE.Mesh(g, mShirtBody));
+    }
+    const btn = new THREE.Mesh(new THREE.SphereGeometry(0.45, 12, 8), mButton);
+    btn.scale.z = 0.5; btn.position.set(0, yc - 0.6, ZC + r + 0.35); model.add(btn);
+    for (let y = -6; y > hemY + 4; y -= 9) {
+      const b2 = new THREE.Mesh(new THREE.SphereGeometry(0.5, 12, 8), mButton);
+      b2.scale.z = 0.5; b2.position.set(0, y, shell.frontZ(0, y) + 0.3); model.add(b2);
+    }
+    const ptsA = [];
+    for (let j = 0; j < 120; j++) { const t = (j / 120) * Math.PI * 2; ptsA.push(new V3((r + 0.75) * Math.cos(t), yc + 0.4, ZC + (r + 0.75) * Math.sin(t))); }
+    meas.A.parts.push(tube(ptsA, 0.38, true, mMeas.A));
+    meas.A.anchor = () => { const th = Math.atan2(camera.position.x, camera.position.z) + 0.7; return new V3((r + 1.2) * Math.sin(th), yc + 0.4, ZC + (r + 1.2) * Math.cos(th)); };
+    meas.A.normal = null;
+  } else {
+    const lz0 = shell.frontZ(0, -8), lz1 = shell.frontZ(0, -10), ly = vest ? -12.5 : -9.5;
+    const logo = new THREE.Mesh(new THREE.PlaneGeometry(6.6, 7.9), new THREE.MeshBasicMaterial({ map: logoTex, transparent: true, color: 0xe6e6e6, polygonOffset: true, polygonOffsetFactor: -4, depthWrite: false }));
+    logo.position.set(0, ly, shell.frontZ(0, ly) + 0.15); logo.rotation.x = Math.atan((lz0 - lz1) / 2); model.add(logo);
+  }
+
+  /* hem rib */
+  const hemPts = []; for (let c = 0; c <= 64; c++) hemPts.push(shell.pt(Math.round((c / 64) * NA) % NA, hemY + 0.3, 0.05));
+  model.add(solid(hemPts, shirt ? 0.3 : 0.45, true, shirt ? mShirtBody : mTee, 6));
+
+  /* sleeves: the C line is center back of the collar, round the neckline, along the shoulder to the shoulder point, then down the sleeve */
+  let ptsC = null;
+  if (!vest) {
+    const F = armFrame(ctx, 1);
+    const shW = P.dims.shoulder ? P.dims.shoulder.cm[i] / 2 : F.S.x + 3.2 * k;
+    const spX = Math.min(shW, shell.halfW(F.S.y + 1) - 0.3);
+    const SP = new V3(spX, shell.topY(spX) + 0.45, ZC);
+    const seam = [];
+    for (let c = 0; c <= 6; c++) { const j = NA / 2 - Math.round((c / 6) * (NA / 4)); seam.push(shell.pt(j, topEdge(ang(j) > Math.PI ? ang(j) - 2 * Math.PI : ang(j)) + 0.35, 0.4)); }
+    for (let x = nW + 1.6; x < spX - 0.8; x += 1.2) seam.push(new V3(x, shell.topY(x) + 0.45, ZC));
+    seam.push(SP);
+    let seamLen = 0; for (let c = 1; c < seam.length; c++) seamLen += seam[c].distanceTo(seam[c - 1]);
+    const sSP = SP.clone().sub(F.S).dot(F.a);
+    const len = shirt ? F.W.clone().sub(F.S).dot(F.a) + 2.5 - sSP : THREE.MathUtils.clamp(S - seamLen, 8, 42);
+    const s0 = -2, s1 = sSP + len;
+    for (const s of [1, -1]) {
+      const R = sleeveRings(ctx, s, s0, s1, shirt ? 0.9 : 1.0, shirt ? 0.8 : 2.1, 0.8);
+      model.add(tubeRings(R.rings, shirt ? mShirtBody : mTee));
+      const end = R.rings[R.rings.length - 1], cuffPts = [];
+      for (let c = 0; c <= 48; c++) { const j = Math.round((c / 48) * NA) % NA, t = ang(j); cuffPts.push(end.c.clone().addScaledVector(end.u, (end.r[j] + 0.05) * Math.sin(t)).addScaledVector(end.w, (end.r[j] + 0.05) * Math.cos(t))); }
+      model.add(solid(cuffPts, shirt ? 0.9 : 0.55, true, shirt ? mShirtBody : mRib, 8));
+      if (s === 1 && !shirt) {
+        ptsC = seam.slice();
+        for (let q = 0; q <= 8; q++) { const Rq = R.rings[Math.round((q / 8) * (R.rings.length - 1))]; ptsC.push(Rq.c.clone().addScaledVector(Rq.u, Rq.r[NA / 4] + 0.35)); }
+      }
+    }
+  }
+
+  /* trousers + shoes under every top */
+  if (shirt) legwear(ctx, "formal", { inner: (y) => shell.ringAt(y), innerTo: hemY });
+  shoesOn(ctx, shirt ? "oxford" : "sneaker");
+
+  if (shirt) { finish(); return; }
+
+  /* ---------- measurement lines ---------- */
+  /* A: length, from the shoulder beside the collar straight down the front to the hem */
+  const x0 = nW + 1.6, ya = shell.topY(x0), ptsA = [];
+  for (let y = ya; y > hemY; y -= 0.8) ptsA.push(new V3(-x0, y + (y === ya ? 0.45 : 0), shell.frontZ(x0, y) + 0.45));
+  ptsA.push(new V3(-x0, hemY, shell.frontZ(x0, hemY) + 0.45));
+  meas.A.parts.push(tube(ptsA, 0.38, false, mMeas.A), dot(ptsA[0], mMeas.A), dot(ptsA[ptsA.length - 1], mMeas.A));
+  const aAnchor = ptsA[Math.floor(ptsA.length * 0.62)];
+  meas.A.anchor = () => aAnchor; meas.A.normal = FWD;
+
+  /* B: chest tape, a level ring round the fullest part of the chest */
+  const ptsB = []; for (let j = 0; j < NA; j++) ptsB.push(shell.pt(j, yB, 0.6));
+  meas.B.parts.push(tube(ptsB, 0.55, true, mMeas.B));
+  meas.B.anchor = () => {
+    const th0 = Math.atan2(camera.position.x, camera.position.z), th = th0 + (Math.cos(th0) >= 0 ? -0.8 : 0.8);
+    const j = ((Math.round((th / (Math.PI * 2)) * NA) % NA) + NA) % NA; return shell.pt(j, yB, 1.2);
+  };
+  meas.B.normal = null;
+
+  if (ptsC) {
+    meas.C.parts.push(tube(ptsC, 0.38, false, mMeas.C), dot(ptsC[0], mMeas.C), dot(ptsC[ptsC.length - 1], mMeas.C));
+    const cEnd = ptsC[ptsC.length - 1];
+    meas.C.anchor = () => cEnd; meas.C.normal = new V3(1, 0, 0);
+  }
+  finish();
+}
+function buildShirt(i) { buildTop(i, { shirt: true, collarCm: FV.data.dims.collar.cm[i] }); }
 
 /* ---------- duffle bag, built from the real cm specs: A width (end to end), B depth, C height ---------- */
 const mBag = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.82, side: THREE.DoubleSide });
 const mPanel = new THREE.MeshStandardMaterial({ color: 0x2a2a2a, roughness: 0.85, side: THREE.DoubleSide });
-
-function resetModel() {
-  if (model) {
-    scene.remove(model);
-    model.traverse((o) => { if (o.geometry) o.geometry.dispose(); });
-  }
-  model = new THREE.Group();
-  meas = { A: { parts: [] }, B: { parts: [] }, C: { parts: [] } };
-}
 
 function buildBag() {
   resetModel();
@@ -394,7 +719,7 @@ function buildBag() {
   const pull = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.35, 3.2), mStand); pull.position.set(hx - 5, Ry + 0.6, 1.4); model.add(pull);
 
   /* two carry handles that meet in a wrapped grip */
-  const ang = THREE.MathUtils.degToRad(42), ya = Ry * Math.cos(ang), za = Rz * Math.sin(ang);
+  const ang2 = THREE.MathUtils.degToRad(42), ya = Ry * Math.cos(ang2), za = Rz * Math.sin(ang2);
   for (const s of [1, -1]) {
     const pts = [[-7.5, ya, za], [-6.5, ya + 6, za * 0.55], [-2.5, ya + 10.5, za * 0.1], [2.5, ya + 10.5, za * 0.1], [6.5, ya + 6, za * 0.55], [7.5, ya, za]]
       .map((p) => new V3(p[0], p[1], s * p[2]));
@@ -440,62 +765,39 @@ function buildBag() {
   meas.B.anchor = () => bAt; meas.B.normal = xN;
   meas.C.anchor = () => cAt; meas.C.normal = xN;
 
-  for (const k in meas) for (const p of meas[k].parts) model.add(p);
-  scene.add(model);
-  builtAt = performance.now();
+  finish();
 }
 
-/* ---------- three-piece suit, built from the real cm specs of the chosen size:
+/* ---------- three-piece suit on the man, from the real cm specs of the chosen size:
    A jacket length (center back), B jacket chest (all the way round), C sleeve (shoulder point to cuff), D shoulder (point to point).
    The vest, shirt and tie show in the jacket opening; vest and trouser numbers live in the panel and table. ---------- */
-const mJacket = new THREE.MeshStandardMaterial({ color: 0x24272d, roughness: 0.8, side: THREE.DoubleSide });
-const mLapel = new THREE.MeshStandardMaterial({ color: 0x2c2f36, roughness: 0.42, side: THREE.DoubleSide });
-const mVest = new THREE.MeshStandardMaterial({ color: 0x30343b, roughness: 0.72, side: THREE.DoubleSide });
-const mShirt = new THREE.MeshStandardMaterial({ color: 0xf1eee8, roughness: 0.8, side: THREE.DoubleSide });
-const mTie = new THREE.MeshStandardMaterial({ color: 0x5b1f2c, roughness: 0.55, side: THREE.DoubleSide });
-const mButton = new THREE.MeshStandardMaterial({ color: 0x0e0e0e, roughness: 0.3, metalness: 0.25 });
-
 function buildSuit(i) {
   resetModel();
   meas.D = { parts: [] };
   const D = FV.data.dims, C = D.chest.cm[i], L = D.jlength.cm[i], S = D.sleeve.cm[i], SHW = D.shoulder.cm[i];
-  const OJ = 2.0; /* a jacket stands a little further off the body than a tee */
+  const OJ = 2.0, kY = 1.03, yB = (M.L.shoulder[1] - 9.5) * kY;
+  const k = kForChest(C, OJ, yB, { kY });
+  /* arm length: the jacket sleeve (shoulder point to cuff) ends just past the wrist */
+  const f0 = fitFn(M, { k, kY, kA: 1 }), c0 = bodyCtx(f0), F0 = armFrame(c0, 1);
+  const armLen = F0.W.clone().sub(F0.S).dot(F0.a) + 4.5;
+  const kA = THREE.MathUtils.clamp(1 + (S - 1.5 - armLen) / F0.W.distanceTo(F0.S), 1, 1.3);
+  const f = fitFn(M, { k, kY, kA });
+  const man = buildMan(M, f); model.add(man.group);
+  const ctx = bodyCtx(f, man.pos);
+  addShadow(model, ctx.ground - 0.05, 120, 0.8);
 
-  /* body chest half-width chosen so the jacket around it measures exactly the spec chest */
-  let lo = 5, hi = 80;
-  for (let k = 0; k < 40; k++) {
-    const mid = (lo + hi) / 2;
-    if (perimeter(mid + OJ, mid * RATIO + OJ, PT) > C) hi = mid; else lo = mid;
-  }
-  const a = (lo + hi) / 2, b = a * RATIO;
-  const sh = Math.max(a * 0.95, SHW / 2 - OJ); /* jacket shoulder points land at the spec shoulder width */
-  const bW = addForm(a, b, sh);
-
-  /* jacket shell, hem at exactly the jacket length below the shoulder */
-  const yTop = 1.2, hemY = -L + 0.8, ys = [];
-  for (let y = yTop; y > hemY; y -= 0.7) ys.push(y);
-  ys.push(hemY);
-  const jk = ys.map((y) => {
-    const flare = Math.max(0, 1 - (y - hemY) / 14) * 1.2;
-    return { y, w: bW(y, "w") + OJ + flare, d: bW(y, "d") + OJ + flare };
+  /* jacket shell: follows the body to the chest, then hangs straight; the shoulders are built out to the spec shoulder width */
+  const yTop = 1.2, hemY = -L + 0.8;
+  const rChest = addR(ctx.ring(yB), OJ);
+  const shell = new Shell(yTop + 1.2, hemY, 0.6, (y) => {
+    let r = addR(ctx.ringSh(y), OJ);
+    if (y < yB) r = maxR(r, rChest);
+    const fl = Math.max(0, 1 - (y - hemY) / 14) * 1.2;
+    return addR(r, fl);
   });
-  const tW = interp(jk);
-  model.add(new THREE.Mesh(loft(jk, 96, PT, false, false), mJacket));
-
-  const topY = (x) => {
-    for (let k = 1; k < jk.length; k++) {
-      if (jk[k].w >= x) {
-        const p0 = jk[k - 1], p1 = jk[k], t = (x - p0.w) / ((p1.w - p0.w) || 1);
-        return p0.y + (p1.y - p0.y) * Math.min(1, Math.max(0, t));
-      }
-    }
-    return jk[jk.length - 1].y;
-  };
-  const frontZ = (x, y) => {
-    const w = tW(y, "w"), d = tW(y, "d");
-    if (Math.abs(x) >= w) return 0;
-    return d * Math.pow(1 - Math.pow(Math.abs(x) / w, PT), 1 / PT);
-  };
+  const topEdge = () => yTop;
+  model.add(shell.mesh(mJacket, { top: topEdge, bottom: () => hemY, rows: 140 }));
+  const frontZ = (x, y) => shell.frontZ(x, y), topY = (x) => shell.topY(x);
   /* a patch that follows the jacket front: rows from y0 down to y1, columns from xa(y) to xb(y), lifted by off */
   const band = (y0, y1, xa, xb, off, mat, nx = 10) => {
     const pos = [], idx = [], ny = Math.max(2, Math.ceil((y0 - y1) / 0.8));
@@ -503,17 +805,11 @@ function buildSuit(i) {
       const y = y0 + ((y1 - y0) * r) / ny, x0 = xa(y), x1 = xb(y);
       for (let c = 0; c <= nx; c++) { const x = x0 + ((x1 - x0) * c) / nx; pos.push(x, y, frontZ(x, y) + off); }
     }
-    for (let r = 0; r < ny; r++) for (let c = 0; c < nx; c++) {
-      const p = r * (nx + 1) + c, q = p + nx + 1;
-      idx.push(p, q, p + 1, p + 1, q, q + 1);
-    }
-    const g = new THREE.BufferGeometry();
-    g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
-    g.setIndex(idx); g.computeVertexNormals();
-    model.add(new THREE.Mesh(g, mat));
+    for (let r = 0; r < ny; r++) for (let c = 0; c < nx; c++) { const p = r * (nx + 1) + c, q = p + nx + 1; idx.push(p, q, p + 1, p + 1, q, q + 1); }
+    model.add(new THREE.Mesh(geo(pos, idx), mat));
   };
 
-  const nW = tW(yTop, "w"), nD = tW(yTop, "d");
+  const nW = shell.halfW(yTop);
   const yV0 = yTop - 0.6, yVb = -L * 0.42, yS = -L * 0.24;
   const J = (y) => Math.max(0, (nW + 0.6) * (y - yVb) / (yV0 - yVb));
   const Sx = (y) => Math.max(0, nW * 0.72 * (y - yS) / (yV0 - yS));
@@ -540,224 +836,139 @@ function buildSuit(i) {
   }
   const edge = [];
   for (let y = yVb; y > hemY + 7; y -= 2) edge.push(new V3(0, y, frontZ(0, y) + 0.3));
-  for (let k = 0; k <= 6; k++) { const t = k / 6, y = hemY + 7 - 7 * t, x = 5 * t * t; edge.push(new V3(x, y, frontZ(x, y) + 0.3)); }
+  for (let q = 0; q <= 6; q++) { const t = q / 6, y = hemY + 7 - 7 * t, x = 5 * t * t; edge.push(new V3(x, y, frontZ(x, y) + 0.3)); }
   model.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(edge, false, "centripetal"), 80, 0.14, 6), mButton));
-  const pY = -L * 0.66;
-  band(pY, pY - 2.4, () => 6, () => 17, 0.35, mLapel, 8);
-  band(pY, pY - 2.4, () => -17, () => -6, 0.35, mLapel, 8);
+  const pY = -L * 0.66, hw = shell.halfW(pY);
+  band(pY, pY - 2.4, () => hw * 0.3, () => hw * 0.8, 0.35, mLapel, 8);
+  band(pY, pY - 2.4, () => -hw * 0.8, () => -hw * 0.3, 0.35, mLapel, 8);
   band(-14.2, -15.6, () => 8, () => 15.5, 0.35, mLapel, 6);
   band(-12.6, -14.3, (y) => 9.5 + (y + 12.6) * -0.6, () => 13.8, 0.5, mShirt, 4);
 
   /* collar: jacket collar round the back, shirt collar inside */
-  const jc = new THREE.Mesh(new THREE.TorusGeometry(nW + 0.2, 1.25, 12, 64), mJacket);
-  jc.rotation.x = Math.PI / 2 - 0.16; jc.scale.set(1, nD / nW, 1); jc.position.y = yTop - 0.1; model.add(jc);
-  const sc = new THREE.Mesh(new THREE.TorusGeometry(nW - 0.9, 0.8, 10, 64), mShirt);
-  sc.rotation.x = Math.PI / 2 - 0.16; sc.scale.set(1, nD / nW, 1); sc.position.y = yTop + 1.1; model.add(sc);
+  const ringPts = (y, off) => { const p = []; for (let c = 0; c <= 64; c++) p.push(shell.pt(Math.round((c / 64) * NA) % NA, y, off)); return p; };
+  model.add(solid(ringPts(yTop - 0.1, 0.2), 1.25, true, mJacket, 10));
+  model.add(solid(ringPts(yTop + 1.1, -0.9), 0.8, true, mShirt, 10));
 
-  /* arms + long sleeves; the sleeve runs the full spec length from the shoulder point */
-  const ang = THREE.MathUtils.degToRad(11);
-  const armR = 4.4 + (a - 16) * 0.13;
-  const rTop = armR + 2.8, rBot = armR + 1.5;
-  const dirR = new V3(Math.sin(ang), -Math.cos(ang), 0), perpR = new V3(Math.cos(ang), Math.sin(ang), 0);
-  const S0r = new V3(sh - armR * 0.5, -10, 0).addScaledVector(dirR, -1.2);
-  const SP = S0r.clone().addScaledVector(perpR, rTop + 0.35);
+  /* sleeves: the shoulder seam sits at half the spec shoulder width; the sleeve runs the spec length from there to the cuff */
+  const FA = armFrame(ctx, 1), spX = Math.min(SHW / 2, shell.halfW(FA.S.y + 1) - 0.3);
+  const SP = new V3(spX, topY(spX) + 0.45, ZC), sSP = SP.clone().sub(FA.S).dot(FA.a);
+  const sleeveData = [];
   for (const s of [1, -1]) {
-    const dir = new V3(s * Math.sin(ang), -Math.cos(ang), 0);
-    const A0 = new V3(s * (sh - armR * 0.5), -10, 0);
-    const arm = new THREE.Mesh(new THREE.CapsuleGeometry(armR, S - 6, 8, 24), mForm);
-    arm.quaternion.setFromUnitVectors(UP, dir);
-    arm.position.copy(A0).addScaledVector(dir, (S - 6) / 2 + 1);
-    model.add(arm);
-    const S0 = A0.clone().addScaledVector(dir, -1.2);
-    const sleeve = new THREE.Mesh(new THREE.CylinderGeometry(rTop, rBot, S, 48, 1, true), mJacket);
-    sleeve.quaternion.setFromUnitVectors(UP, dir.clone().negate());
-    sleeve.position.copy(S0).addScaledVector(dir, S / 2);
-    model.add(sleeve);
-    const cap = new THREE.Mesh(new THREE.SphereGeometry(rTop + 0.15, 40, 20), mJacket);
-    cap.scale.set(1, 0.5, 1); cap.quaternion.copy(sleeve.quaternion); cap.position.copy(S0);
-    model.add(cap);
-    const cuff = new THREE.Mesh(new THREE.TorusGeometry(rBot - 0.7, 0.45, 8, 40), mShirt);
-    cuff.quaternion.setFromUnitVectors(FWD, dir);
-    cuff.position.copy(S0).addScaledVector(dir, S + 0.5);
-    model.add(cuff);
+    const R = sleeveRings(ctx, s, -2, sSP + S - 2, 1.4, 1.6, 0.8);
+    model.add(tubeRings(R.rings, mJacket));
+    const end = R.rings[R.rings.length - 1], cuff = [];
+    for (let c = 0; c <= 40; c++) { const j = Math.round((c / 40) * NA) % NA, t = ang(j), rr = end.r[j] - 0.9; cuff.push(end.c.clone().addScaledVector(end.u, rr * Math.sin(t)).addScaledVector(end.w, rr * Math.cos(t)).addScaledVector(R.F.a, 0.6)); }
+    model.add(solid(cuff, 0.45, true, mShirt, 8));
+    sleeveData.push(R);
   }
+
+  /* suit trousers + oxfords */
+  legwear(ctx, "suit", { mat: mJacket });
+  shoesOn(ctx, "oxford");
 
   /* ---------- measurement lines ---------- */
   /* A: jacket length, center back from the collar seam to the hem */
   const ptsA = [];
-  for (let y = yTop - 0.4; y > hemY; y -= 0.8) ptsA.push(new V3(0, y, -(frontZ(0, y) + 0.5)));
-  ptsA.push(new V3(0, hemY, -(frontZ(0, hemY) + 0.5)));
+  for (let y = yTop - 0.4; y > hemY; y -= 0.8) ptsA.push(new V3(0, y, shell.backZ(0, y) - 0.5));
+  ptsA.push(new V3(0, hemY, shell.backZ(0, hemY) - 0.5));
   meas.A.parts.push(tube(ptsA, 0.38, false, mMeas.A), dot(ptsA[0], mMeas.A), dot(ptsA[ptsA.length - 1], mMeas.A));
   const aAt = ptsA[Math.floor(ptsA.length * 0.6)];
   meas.A.anchor = () => aAt; meas.A.normal = new V3(0, 0, -1);
 
   /* B: chest, a level ring round the jacket at the armpits */
-  const yB = -19, wB = tW(yB, "w") + 0.9, dB = tW(yB, "d") + 0.9, ptsB = [];
-  for (let j = 0; j < 160; j++) { const q = sePoint(wB, dB, (j / 160) * Math.PI * 2, PT); ptsB.push(new V3(q[0], yB, q[1])); }
+  const ptsB = []; for (let j = 0; j < NA; j++) ptsB.push(shell.pt(j, yB, 0.9));
   meas.B.parts.push(tube(ptsB, 0.55, true, mMeas.B));
   meas.B.anchor = () => {
     const th0 = Math.atan2(camera.position.x, camera.position.z), th = th0 + (Math.cos(th0) >= 0 ? -0.8 : 0.8);
-    const q = sePoint(wB + 0.6, dB + 0.6, Math.PI / 2 - th, PT);
-    return new V3(q[0], yB, q[1]);
+    const j = ((Math.round((th / (Math.PI * 2)) * NA) % NA) + NA) % NA; return shell.pt(j, yB, 1.5);
   };
   meas.B.normal = null;
 
   /* C: sleeve, from the shoulder point down the outside of the sleeve to the cuff */
-  const ptsC = [];
-  for (let k = 0; k <= 10; k++) {
-    const t = k / 10, r = rTop + (rBot - rTop) * t + 0.35;
-    ptsC.push(S0r.clone().addScaledVector(dirR, S * t).addScaledVector(perpR, r));
-  }
+  const RL = sleeveData[0], ptsC = [SP];
+  for (let q = 1; q <= 10; q++) { const Rq = RL.rings[Math.round((q / 10) * (RL.rings.length - 1))]; ptsC.push(Rq.c.clone().addScaledVector(Rq.u, Rq.r[NA / 4] + 0.35)); }
   meas.C.parts.push(tube(ptsC, 0.38, false, mMeas.C), dot(ptsC[0], mMeas.C), dot(ptsC[10], mMeas.C));
   const cAt = ptsC[6];
   meas.C.anchor = () => cAt; meas.C.normal = new V3(1, 0, 0);
 
   /* D: shoulder, across the back from one shoulder point to the other */
-  const ptsD = [], xe = SP.x, rn = nW + 0.6, rd = nD + 0.6;
-  for (let k = 0; k <= 40; k++) {
-    const x = -xe + (2 * xe * k) / 40, ax = Math.abs(x);
-    const z = ax < rn ? -rd * Math.sqrt(Math.max(0, 1 - (x / rn) * (x / rn))) - 0.2 : -0.2;
-    ptsD.push(new V3(x, (ax > xe - 1 ? SP.y : topY(ax) + 0.55), z));
+  const xe = ptsC[0].x, ptsD = [];
+  for (let q = 0; q <= 40; q++) {
+    const x = -xe + (2 * xe * q) / 40, ax = Math.abs(x), y = Math.min(topY(ax), yTop) + 0.55;
+    ptsD.push(new V3(x, ax > xe - 1 ? ptsC[0].y : y, shell.backZ(x, y - 0.6) - 0.3));
   }
   meas.D.parts.push(tube(ptsD, 0.38, false, mMeas.D), dot(ptsD[0], mMeas.D), dot(ptsD[40], mMeas.D));
-  const dAt = new V3(0, topY(0) + 0.6, -rd - 0.2);
+  const dAt = ptsD[20].clone().add(new V3(0, 0.1, -0.1));
   meas.D.anchor = () => dAt; meas.D.normal = new V3(0, 0.3, -1).normalize();
 
-  for (const k in meas) for (const p of meas[k].parts) model.add(p);
-  scene.add(model);
-  builtAt = performance.now();
+  finish();
 }
 
-/* ---------- training joggers, built from the real cm specs: A waist (relaxed), B hip, C length (outside leg) ---------- */
-function solveHalf(circ, ratio) { /* half-width of a superellipse ring with the given circumference */
-  let lo = 2, hi = 80;
-  for (let k = 0; k < 40; k++) { const mid = (lo + hi) / 2; if (perimeter(mid, mid * ratio, PT) > circ) hi = mid; else lo = mid; }
-  return (lo + hi) / 2;
-}
+/* ---------- training joggers on the man (shirtless, trainers): A waist (relaxed), B hip, C length (outside leg) ---------- */
 function buildPants(i) {
   resetModel();
-  const D = FV.data.dims, W = D.waist.cm[i], H = D.hip.cm[i], L = D.length.cm[i];
-  const wa = solveHalf(W, 0.72), ha = solveHalf(H, 0.78);
+  const D = FV.data.dims, H = D.hip.cm[i], Lc = D.length.cm[i];
+  const Lm = M.L, yHip0 = Lm.pelvis[1] - 3;
+  /* height: the jogger runs from the waistband to just above the ankle bone; width: the seat ring measures the spec hip */
+  const kY = THREE.MathUtils.clamp((Lc - 1) / ((Lm.pelvis[1] + 13.6) - (Lm.ankle[1] + 1.5)), 0.9, 1.25);
+  const k = kForChest(H, 2.0, yHip0 * kY, { kY });
+  const f = fitFn(M, { k, kY });
+  const man = buildMan(M, f); model.add(man.group);
+  const ctx = bodyCtx(f, man.pos);
+  addShadow(model, ctx.ground - 0.05, 120, 0.8);
+  const W = legwear(ctx, "jogger");
+  shoesOn(ctx, "sneaker");
 
-  /* seat: waistband down to the crotch */
-  const seat = [
-    { y: 0, w: wa, d: wa * 0.72 }, { y: -6, w: (wa + ha) / 2, d: (wa * 0.72 + ha * 0.78) / 2 }, { y: -16, w: ha, d: ha * 0.78 },
-    { y: -23, w: ha * 0.98, d: ha * 0.74 }, { y: -29, w: ha * 0.9, d: ha * 0.6 }
-  ];
-  const sW = interp(seat);
-  model.add(new THREE.Mesh(loft(seat, 80, PT, false, true), mTee));
-
-  /* legs: thigh to a gathered cuff, hem exactly the spec length below the top of the waistband */
-  const r0 = ha * 0.46, xc = ha * 0.54, hemY = -L; /* a small gap between the legs so they read as two */
-  const leg = [
-    { y: -18, w: r0, d: r0 }, { y: -32, w: r0 * 0.96, d: r0 * 0.96 }, { y: -L * 0.55, w: r0 * 0.66, d: r0 * 0.66 },
-    { y: hemY + 9, w: r0 * 0.5, d: r0 * 0.5 }, { y: hemY + 5, w: r0 * 0.46, d: r0 * 0.46 }, { y: hemY + 4, w: r0 * 0.38, d: r0 * 0.38 }
-  ];
-  const lR = interp(leg);
-  for (const s of [1, -1]) {
-    const m = new THREE.Mesh(loft(leg, 48, 2, false, false), mTee); m.position.x = s * xc; model.add(m);
-    const cuff = new THREE.Mesh(new THREE.CylinderGeometry(r0 * 0.38, r0 * 0.38, 4, 40, 1, true), mRib);
-    cuff.position.set(s * xc, hemY + 2, 0); model.add(cuff);
-    /* cargo pocket on the outer thigh */
-    const py = -46, pocket = new THREE.Mesh(new THREE.BoxGeometry(1.2, 14, 11), mRib);
-    pocket.position.set(s * (xc + lR(py, "w") + 0.2), py, 0); model.add(pocket);
+  /* cargo pocket on the outer thigh */
+  for (const leg of W.legs) {
+    const py = W.yC - 14, R = leg.rings.reduce((a, b) => (Math.abs(b.c.y - py) < Math.abs(a.c.y - py) ? b : a));
+    const pocket = new THREE.Mesh(new THREE.BoxGeometry(1.2, 14, 11), mRib);
+    pocket.position.set(R.c.x + leg.s * (R.r[leg.s > 0 ? NA / 4 : (3 * NA) / 4] + 0.2), py, R.c.z); model.add(pocket);
   }
 
-  /* waistband + drawcord */
-  const wb = [{ y: 0.6, w: wa + 0.35, d: wa * 0.72 + 0.35 }, { y: -4, w: wa + 0.35 + (ha - wa) * 0.05, d: wa * 0.72 + 0.4 }];
-  model.add(new THREE.Mesh(loft(wb, 80, PT, false, false), mRib));
-  for (const s of [1, -1]) {
-    const pts = [new V3(s * 1.2, -1.5, wa * 0.72 + 0.6), new V3(s * 1.8, -6, wa * 0.72 + 1.2), new V3(s * 1.4, -11, wa * 0.72 + 1.6)];
-    model.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 20, 0.3, 6), mForm));
-  }
-
-  /* stand between the legs */
-  const pole = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.2, L - 28, 16), mStand);
-  pole.position.y = -(28 + L) / 2; model.add(pole);
-  const base = new THREE.Mesh(new THREE.CylinderGeometry(14, 16, 2.4, 48), mStand);
-  base.position.y = hemY - 1.2; model.add(base);
-  addShadow(model, hemY - 2.5, 90, 1);
-
-  /* A: waist ring; B: hip ring; C: length down the outside of the right leg */
-  const ring = (w, d, y, part) => {
-    const pts = [];
-    for (let j = 0; j < 160; j++) { const q = sePoint(w, d, (j / 160) * Math.PI * 2, PT); pts.push(new V3(q[0], y, q[1])); }
-    part.parts.push(tube(pts, 0.5, true, mMeas[part === meas.A ? "A" : "B"]));
+  /* A: waist ring on the waistband; B: hip ring on the seat; C: length down the outside of the left leg */
+  const ringOf = (y, off, part, key) => {
+    const pts = []; for (let j = 0; j < NA; j++) pts.push(W.seat.pt(j, y, off));
+    part.parts.push(tube(pts, 0.5, true, mMeas[key]));
     part.anchor = () => {
       const th0 = Math.atan2(camera.position.x, camera.position.z), th = th0 + (Math.cos(th0) >= 0 ? -0.7 : 0.7);
-      const q = sePoint(w + 0.6, d + 0.6, Math.PI / 2 - th, PT);
-      return new V3(q[0], y, q[1]);
+      const j = ((Math.round((th / (Math.PI * 2)) * NA) % NA) + NA) % NA; return W.seat.pt(j, y, off + 0.6);
     };
     part.normal = null;
   };
-  ring(wa + 1.1, wa * 0.72 + 1.1, -1.7, meas.A);
-  ring(sW(-16, "w") + 0.8, sW(-16, "d") + 0.8, -16, meas.B);
-  const outer = (y) => (y > -18 ? sW(y, "w") : xc + lR(y, "w")) + 0.7, ptsC = [];
-  for (let y = 0.6; y > hemY; y -= 1.5) ptsC.push(new V3(outer(y), y, 0));
-  ptsC.push(new V3(outer(hemY + 0.5), hemY, 0));
+  ringOf(W.yW - 1.7, 1.2, meas.A, "A");
+  ringOf(yHip0 * kY, 0.8, meas.B, "B");
+  const leg = W.legs[0], outer = (y) => {
+    if (y > W.yC) return W.seat.halfW(y) + 0.7;
+    const R = leg.rings.reduce((a, b) => (Math.abs(b.c.y - y) < Math.abs(a.c.y - y) ? b : a)); return R.c.x + R.r[NA / 4] + 0.7;
+  };
+  const ptsC = [];
+  for (let y = W.yW; y > W.hemY; y -= 1.5) ptsC.push(new V3(outer(y), y, ZC));
+  ptsC.push(new V3(outer(W.hemY + 0.5), W.hemY, ZC));
   meas.C.parts.push(tube(ptsC, 0.38, false, mMeas.C), dot(ptsC[0], mMeas.C), dot(ptsC[ptsC.length - 1], mMeas.C));
   const cAt = ptsC[Math.floor(ptsC.length * 0.62)];
   meas.C.anchor = () => cAt; meas.C.normal = new V3(1, 0, 0);
-
-  for (const k in meas) for (const p of meas[k].parts) model.add(p);
-  scene.add(model);
-  builtAt = performance.now();
+  finish();
 }
 
-/* ---------- formal shoe, sized from the foot length of the chosen EU size: A foot length ---------- */
-const mLeather = new THREE.MeshStandardMaterial({ color: 0x2a1a12, roughness: 0.32, metalness: 0.05, side: THREE.DoubleSide });
-const mSole = new THREE.MeshStandardMaterial({ color: 0x15100c, roughness: 0.7 });
+/* ---------- formal shoe on its own, sized from the foot length of the chosen EU size: A foot length ---------- */
 function buildShoe(i) {
   resetModel();
   delete meas.B; delete meas.C;
-  const foot = FV.data.dims.foot.cm[i], Ls = foot + 2.2, Ws = Ls * 0.37, x0 = -Ls / 2;
-  /* half-width of the outline along the shoe, t = 0 heel .. 1 toe */
-  const hw = (t) => {
-    let w = t < 0.68 ? 0.74 + 0.26 * Math.sin((t / 0.68) * Math.PI / 2) : Math.pow(Math.max(0, 1 - Math.pow((t - 0.68) / 0.32, 2.4)), 0.5);
-    if (t < 0.07) w *= Math.sqrt(Math.max(0, 1 - Math.pow((0.07 - t) / 0.07, 2)));
-    return (Ws / 2) * Math.max(w, 0.02);
-  };
-  /* sole: the outline extruded up 1.3 cm, heel block underneath the back */
-  const N = 80, shape = new THREE.Shape();
-  for (let k = 0; k <= N; k++) { const t = k / N; const p = [x0 + Ls * t, hw(t)]; k ? shape.lineTo(p[0], p[1]) : shape.moveTo(p[0], p[1]); }
-  for (let k = N; k >= 0; k--) { const t = k / N; shape.lineTo(x0 + Ls * t, -hw(t)); }
-  const soleGeo = new THREE.ExtrudeGeometry(shape, { depth: 1.3, bevelEnabled: false }); soleGeo.rotateX(Math.PI / 2);
-  const sole = new THREE.Mesh(soleGeo, mSole); sole.position.y = 3.3; model.add(sole);
-  const heel = new THREE.Mesh(new THREE.BoxGeometry(Ls * 0.24, 2.0, hw(0.12) * 1.8), mSole);
-  heel.position.set(x0 + Ls * 0.13, 1.0, 0); model.add(heel);
-
-  /* upper: arched cross-sections from heel to toe, height from the heel counter over the instep down to the toe */
-  const ht = (t) => t < 0.3 ? 7.2 : t < 0.45 ? 7.2 + (t - 0.3) * 4 : 7.8 * Math.pow(Math.max(0, 1 - (t - 0.45) / 0.55), 0.85) + 0.6;
-  const pos = [], idx = [], M = 24, rows = 70;
-  for (let r = 0; r <= rows; r++) {
-    const t = r / rows, x = x0 + Ls * t, w = hw(t) * 0.97, h = ht(t);
-    for (let j = 0; j <= M; j++) { const th = (j / M) * Math.PI; pos.push(x, 3.3 + h * Math.pow(Math.sin(th), 0.75), w * Math.cos(th)); }
-  }
-  for (let r = 0; r < rows; r++) for (let j = 0; j < M; j++) { const a = r * (M + 1) + j, b = a + M + 1; idx.push(a, b, a + 1, a + 1, b, b + 1); }
-  const ug = new THREE.BufferGeometry();
-  ug.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); ug.setIndex(idx); ug.computeVertexNormals();
-  model.add(new THREE.Mesh(ug, mLeather));
-
-  /* opening and laces on top */
-  const op = new THREE.Mesh(new THREE.CircleGeometry(1, 40), mSole);
-  op.rotation.x = -Math.PI / 2; op.scale.set(Ls * 0.16, hw(0.22) * 0.75, 1); op.position.set(x0 + Ls * 0.24, 3.3 + 7.25, 0); model.add(op);
-  for (let k = 0; k < 4; k++) {
-    const t = 0.42 + k * 0.055, lace = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.14, hw(t) * 0.7), mSole);
-    lace.position.set(x0 + Ls * t, 3.3 + ht(t) + 0.05, 0); model.add(lace);
-  }
+  const foot = FV.data.dims.foot.cm[i], Ls = foot + 2.2;
+  const shoe = makeShoe("oxford", Ls, -1);
+  shoe.rotation.y = Math.PI / 2; shoe.position.x = -Ls / 2; /* toe to +x, outer side to the camera */
+  model.add(shoe);
   addShadow(model, -0.05, 40, 1.4);
 
-  /* A: foot length, heel to toe along the outside of the sole */
-  /* on the side that faces the opening camera, just above the sole edge */
-  const z = hw(0.68) + 0.9, ptsA = [], s0 = x0 + (Ls - foot) / 2;
-  for (let k = 0; k <= 10; k++) ptsA.push(new V3(s0 + (foot * k) / 10, 3.9, z));
+  /* A: foot length, heel to toe along the outside of the shoe, just above the sole edge */
+  let wmax = 0; for (let t = 0.5; t < 0.8; t += 0.02) wmax = Math.max(wmax, Ls * 0.365 / 2);
+  const z = wmax + 1.0, ptsA = [], x0 = -Ls / 2 + (Ls - foot) / 2, y = shoe.userData.ytop(0.7) + 0.55;
+  for (let q = 0; q <= 10; q++) ptsA.push(new V3(x0 + (foot * q) / 10, y, z));
   meas.A.parts.push(tube(ptsA, 0.3, false, mMeas.A), dot(ptsA[0], mMeas.A), dot(ptsA[10], mMeas.A));
   const aAt = ptsA[5];
   meas.A.anchor = () => aAt; meas.A.normal = new V3(0, 0, 1);
-
-  for (const k in meas) for (const p of meas[k].parts) model.add(p);
-  scene.add(model);
-  builtAt = performance.now();
+  finish();
 }
 
 function build() {
@@ -767,7 +978,7 @@ function build() {
   else if (p === "joggers") buildPants(FV.size);
   else if (p === "shoe") buildShoe(FV.size);
   else if (p === "shirt") buildShirt(FV.size);
-  else buildTee(FV.size); /* tee, gymtee, gymvest */
+  else buildTop(FV.size); /* tee, gymtee, gymvest */
 }
 
 /* ---------- labels ---------- */
@@ -804,16 +1015,16 @@ document.querySelectorAll("[data-cam]").forEach((btn) => btn.addEventListener("c
   tween = { from, delta, t0: performance.now(), rXZ: Math.hypot(off.x, off.z), y: off.y };
 }));
 
-/* ---------- framing: each product gets its own camera target and fit box ---------- */
+/* ---------- framing: each product gets its own camera target and fit box (head to mid-thigh for tops) ---------- */
 const FIT = {
-  tee: { y: -57, h: 76, w: 52, lift: 0.075 },
-  suit: { y: -57, h: 78, w: 56, lift: 0.075 },
+  tee: { y: -36, h: 66, w: 46, lift: 0.06 },
+  suit: { y: -38, h: 68, w: 48, lift: 0.06 },
   bag: { y: 13, h: 33, w: 31, lift: 0.36 },
-  gymtee: { y: -57, h: 76, w: 52, lift: 0.075 },
-  gymvest: { y: -57, h: 76, w: 52, lift: 0.075 },
-  shirt: { y: -40, h: 60, w: 52, lift: 0.1 },
-  joggers: { y: -56, h: 64, w: 44, lift: 0.1 },
-  shoe: { y: 4, h: 13, w: 21, lift: 0.42 }
+  gymtee: { y: -36, h: 66, w: 46, lift: 0.06 },
+  gymvest: { y: -36, h: 66, w: 46, lift: 0.06 },
+  shirt: { y: -30, h: 60, w: 44, lift: 0.07 },
+  joggers: { y: -64, h: 96, w: 44, lift: 0.04 },
+  shoe: { y: 4.5, h: 12, w: 20, lift: 0.42 }
 };
 const TAN = Math.tan(THREE.MathUtils.degToRad(15));
 function frame(reset) {
@@ -868,10 +1079,10 @@ renderer.setAnimationLoop((now) => {
 
   /* place the HTML labels on their lines */
   const w = box.clientWidth, h = box.clientHeight;
-  for (const k in tags) if (!meas[k]) tags[k].classList.add("hide"); /* e.g. D only exists on the suit */
+  for (const k in tags) if (!meas[k] || !meas[k].anchor) tags[k].classList.add("hide"); /* e.g. D only exists on the suit */
   for (const k in meas) {
     const m = meas[k], el = tags[k];
-    if ((now - builtAt - DELAY[k]) / 1100 < 0.6) { el.classList.add("hide"); continue; }
+    if (!m.anchor || (now - builtAt - DELAY[k]) / 1100 < 0.6) { el.classList.add("hide"); continue; }
     el.classList.toggle("hide", false);
     const p = m.anchor();
     v.copy(p).project(camera);
@@ -889,7 +1100,7 @@ renderer.setAnimationLoop((now) => {
 let lastKey = "";
 function sync() {
   const key = FV.product + ":" + FV.size;
-  if (key !== lastKey) {
+  if (M && key !== lastKey) {
     const productChanged = lastKey.split(":")[0] !== FV.product;
     lastKey = key;
     build();
@@ -898,5 +1109,7 @@ function sync() {
   updateLabels(); applyFocus();
 }
 FV.on(sync);
+window.FV3D = { camera, controls, frame }; /* for screenshots and debugging */
 resize();
+loadMan("assets/man.json").then((m) => { M = m; sync(); }).catch((e) => { console.error(e); fail("The 3D model could not load. Every measurement is in the panel and the full chart below."); });
 sync();
