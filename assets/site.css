@@ -162,7 +162,8 @@ thead th:first-child { padding-left: 12px; }
   .header__nav { display: none; }
 }
 @media (max-width: 420px) {
-  .viewer { height: 480px; }
+  /* shorter on phones so the sizes peek in below and the page clearly keeps going */
+  .viewer { height: clamp(360px, 60vh, 460px); }
   .spec__v { font-size: 22px; }
   .finder { padding: 24px 18px; }
   .finder form .pill { width: 100%; }

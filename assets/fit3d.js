@@ -40,6 +40,10 @@ controls.minPolarAngle = 1.05;
 controls.maxPolarAngle = 1.95;
 controls.autoRotate = !matchMedia("(prefers-reduced-motion: reduce)").matches;
 controls.autoRotateSpeed = 1.1;
+// Phones: up/down swipes scroll the page and only sideways swipes turn the model.
+// OrbitControls sets touch-action "none" (it would swallow every swipe); "pan-y" hands vertical swipes back to the browser.
+renderer.domElement.style.touchAction = "pan-y";
+if (matchMedia("(pointer: coarse)").matches) hint.textContent = "Swipe sideways to rotate";
 
 /* ---------- lights ---------- */
 scene.add(new THREE.HemisphereLight(0xffffff, 0x1a1a1a, 1.1));
