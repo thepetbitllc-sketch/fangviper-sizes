@@ -53,8 +53,168 @@
       ],
       tip: "Measured empty. A fully packed bag rounds out slightly, so leave a little room."
     },
-    suit: suitProduct()
+    suit: suitProduct(),
+    gymtee: gymTeeProduct(),
+    gymvest: gymVestProduct(),
+    joggers: joggersProduct(),
+    shirt: shirtProduct(),
+    shoe: shoeProduct()
   };
+
+  /* helpers for supplier charts given in cm: build {cm, in} dims and body-chest ranges (inches) from garment chest minus ease */
+  function cmDims(cm) {
+    var d = {};
+    Object.keys(cm).forEach(function (k) { d[k] = { cm: cm[k], in: cm[k].map(function (c) { return c / 2.54; }) }; });
+    return d;
+  }
+  function chestFit(garmentCm, easeIn) {
+    var up = garmentCm.map(function (g) { return Math.round((g / 2.54 - easeIn) * 2) / 2; });
+    return up.map(function (u, i) { return [i ? up[i - 1] + 0.5 : u - 2, u]; });
+  }
+  function lb(kg) { return Math.round(kg * 2.2046); } /* a declaration, so it is ready while PRODUCTS is being built */
+
+  /* Gym tee (Zendrop 2769063, knit fitted): supplier chart in cm. Sleeve on the model runs from the back of the collar,
+     so it is half the shoulder width plus the supplier sleeve (which starts at the shoulder seam). */
+  function gymTeeProduct() {
+    var shoulder = [42, 43.5, 44.5, 46], sleevept = [14, 15, 16, 17], chest = [96, 102, 108, 114];
+    return {
+      name: "Gym Tee", flatName: "Tee",
+      sizes: ["M", "L", "XL", "XXL"],
+      defaultSize: 1,
+      finder: true,
+      finderNote: "This tee is cut close and runs about one size smaller than US brands, so we leave about 2 in (5 cm) of room.",
+      dims: cmDims({
+        length: [71, 73, 75, 77],
+        width: chest.map(function (c) { return c / 2; }),
+        shoulder: shoulder,
+        sleevept: sleevept,
+        sleeve: shoulder.map(function (s, i) { return s / 2 + sleevept[i]; })
+      }),
+      chest: chestFit(chest, 2),
+      specs: [
+        { k: "A", name: "Length", hint: "Shoulder by the collar to hem", dim: "length" },
+        { k: "B", name: "Fits chest", hint: "Your body, measured around", chest: true },
+        { k: "C", name: "Sleeve length", hint: "Back of collar to sleeve end", dim: "sleeve" },
+        { name: "Shoulder", hint: "Straight across the back, seam to seam", dim: "shoulder" }
+      ],
+      columns: [["Length", "length"], ["Width (flat)", "width"], ["Shoulder", "shoulder"], ["Sleeve (from seam)", "sleevept"], ["Fits chest", "chest-fit"]],
+      tableTitle: "All sizes · gym tee",
+      tolerance: "Measured on the garment by our supplier, by hand. Allow 1 to 3 cm either way.",
+      steps: [
+        ["A", "Length", "From the highest point of the shoulder, right beside the collar, straight down to the bottom hem."],
+        ["B", "Chest", "Around the fullest part of your chest with the tape level. On a tee laid flat, measure straight across from armpit to armpit."],
+        ["C", "Sleeve", "From the center back of the collar, along the shoulder seam, then down to the end of the sleeve."]
+      ],
+      tip: "Cut close and about one size smaller than US brands. Between sizes, go up."
+    };
+  }
+
+  /* Gym vest (Zendrop 2616013, mesh tank): supplier chart in cm plus a suggested body weight. */
+  function gymVestProduct() {
+    var chest = [94, 99, 104, 109, 114, 119], kg = [[50, 60], [60, 70], [70, 80], [80, 85], [85, 90], [90, 100]];
+    return {
+      name: "Gym Vest", flatName: "Vest", sleeveless: true,
+      sizes: ["S", "M", "L", "XL", "2XL", "3XL"],
+      defaultSize: 2,
+      finder: true,
+      finderNote: "A relaxed vest, so we leave about 3 in (8 cm) of room around your chest. Check the weight column too.",
+      dims: cmDims({ length: [70, 73, 76, 79, 82, 85], width: chest.map(function (c) { return c / 2; }) }),
+      text: { weight: kg.map(function (r) { return r[0] + "–" + r[1] + " kg · " + lb(r[0]) + "–" + lb(r[1]) + " lb"; }) },
+      chest: chestFit(chest, 3),
+      specs: [
+        { k: "A", name: "Length", hint: "Shoulder strap to hem", dim: "length" },
+        { k: "B", name: "Fits chest", hint: "Your body, measured around", chest: true },
+        { name: "Your weight", hint: "The supplier's quick guide", text: "weight" }
+      ],
+      columns: [["Length", "length"], ["Width (flat)", "width"], ["Your weight", "weight"], ["Fits chest", "chest-fit"]],
+      tableTitle: "All sizes · gym vest",
+      tolerance: "Measured on the garment by our supplier, by hand. Allow 1 to 3 cm either way.",
+      steps: [
+        ["A", "Length", "From the top of the shoulder strap straight down to the bottom of the hem."],
+        ["B", "Chest", "Around the fullest part of your chest under the arms, tape level. On a vest laid flat, measure across from armhole to armhole."]
+      ],
+      tip: "Between sizes? Go up for a looser drop-arm look, stay for a closer fit."
+    };
+  }
+
+  /* Training joggers (Zendrop 2822022): waist relaxed to fully stretched, outside leg length, hip laid flat (x2 for the full hip). */
+  function joggersProduct() {
+    var hipFlat = [52, 54, 56, 58, 60, 62];
+    return {
+      name: "Joggers",
+      sizes: ["M", "L", "XL", "2XL", "3XL", "4XL"],
+      defaultSize: 1,
+      finder: false,
+      dims: cmDims({
+        waist: [68, 71, 74, 77, 80, 83],
+        waistmax: [100, 103, 106, 109, 112, 115],
+        hip: hipFlat.map(function (h) { return h * 2; }),
+        length: [102, 104, 106, 108, 110, 112]
+      }),
+      specs: [
+        { k: "A", name: "Waist (relaxed)", hint: "The elastic waistband, all the way round", dim: "waist" },
+        { name: "Waist (stretched)", hint: "As far as the elastic stretches", dim: "waistmax" },
+        { k: "B", name: "Hip", hint: "All the way round the seat", dim: "hip" },
+        { k: "C", name: "Length", hint: "Top of the waistband to the cuff, outside leg", dim: "length" }
+      ],
+      columns: [["Waist relaxed", "waist"], ["Waist stretched", "waistmax"], ["Hip", "hip"], ["Length", "length"]],
+      tableTitle: "All sizes · training joggers",
+      tolerance: "Measured on the garment by our supplier, by hand. Allow 1 to 3 cm either way.",
+      steps: [
+        ["A", "Your waist", "Wrap the tape round your waist where joggers sit, just above the hip bones. Pick the size whose waist range (relaxed to stretched) includes yours."],
+        ["B", "Your hip", "Round the fullest part of your seat, feet together. The jogger hip should be a few cm more than yours."],
+        ["C", "Length", "From the top of the waistband down the outside of the leg to the bottom of the cuff."]
+      ],
+      tip: "Go by your waist. The drawcord takes up any extra."
+    };
+  }
+
+  /* Dress shirts (Go Official): every shirt is sized by the collar in cm; US collar sizes are the standard conversion. */
+  function shirtProduct() {
+    return {
+      name: "Dress Shirt",
+      sizes: ["38", "39", "40", "41", "42", "43", "44", "45"],
+      defaultSize: 3,
+      finder: false,
+      dims: cmDims({ collar: [38, 39, 40, 41, 42, 43, 44, 45] }),
+      text: { us: ["15", "15½", "15¾", "16", "16½", "17", "17½", "17¾"] },
+      specs: [
+        { k: "A", name: "Collar", hint: "Round the neck, where the collar buttons", dim: "collar" },
+        { name: "US collar size", hint: "Standard conversion", text: "us" }
+      ],
+      columns: [["Collar", "collar"], ["US collar", "us"]],
+      tableTitle: "Collar sizes · every dress shirt",
+      tolerance: "The size on the label is the collar in centimeters. Body and sleeve vary a little between shirt styles.",
+      steps: [
+        ["A", "Your neck", "Wrap the tape round your neck at the Adam's apple, where the collar sits. Keep one finger under the tape so it is not tight."]
+      ],
+      tip: "Wearing a tie? The collar should close with one finger of room. Between sizes, take the bigger one."
+    };
+  }
+
+  /* Formal shoes (Go Official): standard China-supplier EU sizes, foot length in mm; US sizes approximate. */
+  function shoeProduct() {
+    return {
+      name: "Shoes",
+      sizes: ["38", "39", "40", "41", "42", "43", "44", "45", "46", "47", "48"],
+      defaultSize: 4,
+      finder: false,
+      inchStep: 8,
+      dims: cmDims({ foot: [24, 24.5, 25, 25.5, 26, 26.5, 27, 27.5, 28, 28.5, 29] }),
+      text: { us: ["6", "6½", "7½", "8", "8½", "9½", "10", "11", "11½", "12", "13"] },
+      specs: [
+        { k: "A", name: "Foot length", hint: "Heel to the tip of your longest toe", dim: "foot" },
+        { name: "US size", hint: "Approximate; brands vary by about half a size", text: "us" }
+      ],
+      columns: [["Foot length", "foot"], ["US size ≈", "us"]],
+      tableTitle: "EU sizes · every formal shoe",
+      tolerance: "Pick the size whose foot length is equal to, or just above, yours.",
+      steps: [
+        ["A", "Foot length", "Stand on paper with your heel against a wall. Mark the tip of your longest toe and measure from the wall to the mark. Do both feet and use the longer one."]
+      ],
+      tip: "Between sizes? Go up one. Leather gives a little with wear, but a short shoe never gets longer."
+    };
+  }
 
   /* Three-piece suit: supplier chart XF001 in cm (Casual Suit for Business and Wedding Attire + 2018 Spring Three-Piece).
      Inches are computed from cm. "Fits chest" = garment chest minus SUIT_EASE inches of room, rounded to the half inch. */
@@ -144,7 +304,9 @@
     var r = P.chest[i];
     return state.unit === "in" ? fmtIn(r[0]) + "–" + fmtIn(r[1]) : Math.round(r[0] * 2.54) + "–" + Math.round(r[1] * 2.54);
   }
-  function specVal(s, i) { return s.chest ? chestRange(i) : val(s.dim, i); }
+  function specVal(s, i) { return s.chest ? chestRange(i) : s.text ? P.text[s.text][i] : val(s.dim, i); }
+  /* a table cell: chest-fit range, a plain text column (P.text), or a measurement */
+  function cellVal(key, i) { return key === "chest-fit" ? chestRange(i) : P.text && P.text[key] ? P.text[key][i] : val(key, i); }
   function emit() { subs.forEach(function (fn) { fn(); }); }
 
   /* ---------- render ---------- */
@@ -162,9 +324,9 @@
     var u = state.unit, i = state.size;
     byId("specs").innerHTML = P.specs.map(function (s) {
       if (s.group) return "<p class=\"spec__group\">" + s.group + "</p>";
-      var hint = s.chest ? s.hint + ". Tee width laid flat: " + val("width", i) + " " + u : s.hint;
+      var hint = s.chest ? s.hint + ". " + (P.flatName || "Tee") + " width laid flat: " + val("width", i) + " " + u : s.hint;
       var inner = "<span class=\"spec__name\">" + s.name + "<span class=\"spec__hint\">" + hint + "</span></span>" +
-        "<span class=\"spec__v\">" + specVal(s, i) + "<small>" + u + "</small></span>";
+        "<span class=\"spec__v\">" + specVal(s, i) + (s.text ? "" : "<small>" + u + "</small>") + "</span>";
       /* measurements without a letter are not drawn on the 3D model, so they are plain rows */
       if (!s.k) return "<div class=\"spec spec--plain\"><span class=\"spec__k\"></span>" + inner + "</div>";
       return "<button type=\"button\" class=\"spec" + (state.focus === s.k ? " on" : "") + "\" data-k=\"" + s.k + "\">" +
@@ -179,7 +341,7 @@
     byId("thead").innerHTML = "<tr><th scope=\"col\">Size</th>" + P.columns.map(function (c) { return "<th scope=\"col\">" + c[0] + "</th>"; }).join("") + "</tr>";
     byId("tbody").innerHTML = P.sizes.map(function (s, i) {
       return "<tr data-size=\"" + i + "\"" + (i === state.size ? " class=\"on\"" : "") + "><td>" + s + "</td>" +
-        P.columns.map(function (c) { return "<td>" + (c[1] === "chest-fit" ? chestRange(i) : val(c[1], i)) + "</td>"; }).join("") + "</tr>";
+        P.columns.map(function (c) { return "<td>" + cellVal(c[1], i) + "</td>"; }).join("") + "</tr>";
     }).join("");
     byId("tblNote").textContent = "All values in " + (state.unit === "in" ? "inches" : "centimeters") + ". " + P.tolerance;
   }
@@ -263,7 +425,7 @@
     get focus() { return state.focus; },
     label: function (k) {
       var s = P.specs.filter(function (x) { return x.k === k; })[0];
-      return s ? specVal(s, state.size) + " " + state.unit : "";
+      return s ? specVal(s, state.size) + (s.text ? "" : " " + state.unit) : "";
     },
     setFocus: function (k) { state.focus = state.focus === k ? null : k; renderFocus(); emit(); },
     on: function (fn) { subs.push(fn); }
