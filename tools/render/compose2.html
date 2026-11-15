@@ -1,0 +1,131 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>compose2</title>
+<style>html,body{margin:0;background:transparent}canvas{display:block}</style></head>
+<body><canvas id="c" width="1254" height="1254"></canvas>
+<script>
+/* Card version of a TAPE picture, in any direction (across, down, along a sleeve):
+   1. find the two red dots (start, end) = the maker's measuring points
+   2. cover the tape with the fabric right beside it (or background where there is no fabric)
+   3. the tape case lies on the background, so after step 2 it is a loose island: remove everything not joined to the garment
+   4. lay copies of the real card from the intro picture end to end from dot to dot, numbered, then redraw the dots.
+   ?base=shirt-chest-tape&cards=6.3   (cards = how many card lengths the real measurement is, for realistic card size) */
+const P = new URLSearchParams(location.search), BASE = P.get("base"), CARDS = +(P.get("cards") || 6), CLEAR = P.get("clear") === "1"; /* clear=1: past the end dot there is only background */
+const load = (src) => new Promise((ok, bad) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => bad(src); i.src = src; });
+(async () => {
+  const FILL = P.get("fill") === "intro";  /* fill past the end dot from the matching "get ready" picture (same framing, no tape) */
+  const [base, intro, gIntro] = await Promise.all([load(`ai/out/${BASE}.png`), load("../../assets/finder/tee-intro.png"), FILL ? load(`ai/out/${BASE.split("-")[0]}-intro.png`) : null]);
+  const c = document.getElementById("c"), g = c.getContext("2d"), W = c.width, H = c.height;
+  g.drawImage(base, 0, 0, W, H);
+  const orig = document.createElement("canvas"); orig.width = W; orig.height = H; orig.getContext("2d").drawImage(c, 0, 0);
+  let px = g.getImageData(0, 0, W, H).data; const at = (x, y) => (y * W + x) * 4;
+  /* 1. red dots: round red blobs */
+  const seen = new Uint8Array(W * H), blobs = [];
+  const red = (i) => px[i] > 170 && px[i + 1] < 95 && px[i + 2] < 95 && px[i + 3] > 200;
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const k = y * W + x; if (seen[k] || !red(k * 4)) continue;
+    const st = [k]; seen[k] = 1; let n = 0, sx = 0, sy = 0, x0 = W, x1 = 0, y0 = H, y1 = 0;
+    while (st.length) { const q = st.pop(), qx = q % W, qy = (q / W) | 0; n++; sx += qx; sy += qy; x0 = Math.min(x0, qx); x1 = Math.max(x1, qx); y0 = Math.min(y0, qy); y1 = Math.max(y1, qy);
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = qx + dx, ny = qy + dy, nk = ny * W + nx; if (nx >= 0 && ny >= 0 && nx < W && ny < H && !seen[nk] && red(nk * 4)) { seen[nk] = 1; st.push(nk); } } }
+    const w = x1 - x0 + 1, h = y1 - y0 + 1;
+    if (n > 40) blobs.push({ x: sx / n, y: sy / n, r: Math.max(w, h) / 2, n, round: w / h > 0.6 && w / h < 1.6 && n > 0.5 * w * h });
+  }
+  if (blobs.length < 2) throw new Error("found " + blobs.length + " red dots");
+  /* the two dots: among the round red blobs, the pair farthest apart (big enough to be dots, not tape numbers) */
+  const cand = blobs.filter((b) => b.round && b.n > 120); const pool = cand.length >= 2 ? cand : blobs;
+  let A, B, far = -1; for (let i = 0; i < pool.length; i++) for (let j = i + 1; j < pool.length; j++) { const d = Math.hypot(pool[i].x - pool[j].x, pool[i].y - pool[j].y); if (d > far) { far = d; A = pool[i]; B = pool[j]; } }
+  /* start = the end nearer the hook: the tape continues past B to the case. Decide by which end has yellow tape beyond it. */
+  const yellow = (x, y) => { x = Math.round(x); y = Math.round(y); if (x < 0 || y < 0 || x >= W || y >= H) return false; const i = at(x, y); return px[i] > 150 && px[i + 1] > 115 && px[i + 2] < 110 && px[i] - px[i + 2] > 70 && px[i + 3] > 180; };
+  const beyond = (P1, P2) => { const L = Math.hypot(P2.x - P1.x, P2.y - P1.y), ux = (P2.x - P1.x) / L, uy = (P2.y - P1.y) / L; let k = 0; for (let t = 6; t < 160; t += 2) for (let q = -40; q <= 40; q += 4) if (yellow(P2.x + ux * t - uy * q, P2.y + uy * t + ux * q)) k++; return k; };
+  if (beyond(B, A) > beyond(A, B)) { const t = A; A = B; B = t; }
+  const L = Math.hypot(B.x - A.x, B.y - A.y), ux = (B.x - A.x) / L, uy = (B.y - A.y) / L, nx = -uy, ny = ux;
+  /* tape half width: widest yellow run across the middle */
+  let tw = 8; for (let t = 0.2; t <= 0.8; t += 0.1) { const mx = A.x + ux * L * t, my = A.y + uy * L * t; let lo = 0, hi = 0; for (let s = 0; s < 40; s++) { if (yellow(mx + nx * s, my + ny * s)) hi = s; if (yellow(mx - nx * s, my - ny * s)) lo = s; } tw = Math.max(tw, (hi + lo) / 2 + 1); }
+  /* how far the tape runs past B */
+  let end = L; for (let t = L; t < L + 600; t++) { let any = false; for (let s = -tw; s <= tw; s += 2) if (yellow(A.x + ux * t + nx * s, A.y + uy * t + ny * s)) { any = true; break; } if (any) end = t; else if (t - end > 12) break; }
+  /* 2. cover the tape strip (a little before A to the end) with what lies beside it */
+  const half = tw + 6, shift = half * 2 + 4;
+  const side = (sgn) => { let k = 0; for (let t = 0; t < L; t += L / 20) { const x = Math.round(A.x + ux * t + nx * sgn * shift), y = Math.round(A.y + uy * t + ny * sgn * shift); if (x >= 0 && y >= 0 && x < W && y < H && px[at(x, y) + 3] > 200) k++; } return k; };
+  const sg = side(1) >= side(-1) ? 1 : -1;
+  const strip = (t0, t1) => { g.beginPath(); [[t0, -half], [t1, -half], [t1, half], [t0, half]].forEach(([t, s], i) => { const x = A.x + ux * t + nx * s, y = A.y + uy * t + ny * s; i ? g.lineTo(x, y) : g.moveTo(x, y); }); g.closePath(); };
+  g.save(); strip(-14, L - 3); g.clip(); g.clearRect(0, 0, W, H); g.drawImage(orig, -nx * sg * shift, -ny * sg * shift); g.restore();
+  /* past the end dot the tape may cross the garment edge: keep fabric only where there is fabric on BOTH sides */
+  {
+    const od = orig.getContext("2d").getImageData(0, 0, W, H).data, cur = g.getImageData(0, 0, W, H), cd = cur.data, hw = half + 12, sh = hw * 2 + 6;
+    const op = (x, y) => { x = Math.round(x); y = Math.round(y); return x >= 0 && y >= 0 && x < W && y < H && od[at(x, y) + 3] > 200 && !yellow(x, y); };
+    let outRun = 0, leftAt = -1;
+    for (let t = L - 3; t <= end + 18; t += 0.5) {
+      const bx = A.x + ux * t, by = A.y + uy * t, up = op(bx + nx * (hw + 4), by + ny * (hw + 4)), dn = op(bx - nx * (hw + 4), by - ny * (hw + 4));
+
+      for (let s2 = -hw; s2 <= hw; s2 += 0.5) {
+        const x = Math.round(bx + nx * s2), y = Math.round(by + ny * s2); if (x < 0 || y < 0 || x >= W || y >= H) continue;
+        const i = at(x, y); let src = null;
+        if (up && dn) src = [x + nx * sh, y + ny * sh]; else if (up && s2 > 0) src = [x + nx * sh, y + ny * sh]; else if (dn && s2 < 0) src = [x - nx * sh, y - ny * sh];
+        if (src) { const j = at(Math.round(src[0]), Math.round(src[1])); cd[i] = od[j]; cd[i + 1] = od[j + 1]; cd[i + 2] = od[j + 2]; cd[i + 3] = od[j + 3]; } else cd[i + 3] = 0;
+      }
+    }
+    /* past the end dot: remove what does not look like this garment's fabric (tape, case, strap, shadow line) */
+    if (!CLEAR) {
+      const vals = []; for (let t = L * 0.15; t < L * 0.85; t += 3) for (const sg2 of [-1, 1]) { const x = Math.round(A.x + ux * t + nx * sg2 * (hw + 10)), y = Math.round(A.y + uy * t + ny * sg2 * (hw + 10)); const i = at(x, y); if (od[i + 3] > 220) vals.push(0.3 * od[i] + 0.59 * od[i + 1] + 0.11 * od[i + 2]); }
+      vals.sort((p, q) => p - q); const med = vals[vals.length >> 1] || 128, spread = (vals[(vals.length * 0.9) | 0] - vals[(vals.length * 0.1) | 0]) || 20, tol = Math.max(28, spread * 1.6);
+      for (let t = L + 4; t < end + 240; t++) for (let s2 = -75; s2 <= 75; s2++) {
+        const x = Math.round(A.x + ux * t + nx * s2), y = Math.round(A.y + uy * t + ny * s2); if (x < 0 || y < 0 || x >= W || y >= H) continue;
+        const i = at(x, y); if (cd[i + 3] === 0) continue; const r = cd[i], gg = cd[i + 1], b = cd[i + 2], lm = 0.3 * r + 0.59 * gg + 0.11 * b;
+        if ((r - b > 60 && r > 120) || Math.abs(lm - med) > tol) cd[i + 3] = 0;
+      }
+    }
+    const clearFrom = CLEAR ? L + 30 : -1, band = 115; if (clearFrom > 0) for (let t = clearFrom; t < end + 240; t++) for (let s2 = -band; s2 <= band; s2++) { const x = Math.round(A.x + ux * t + nx * s2), y = Math.round(A.y + uy * t + ny * s2); if (x >= 0 && y >= 0 && x < W && y < H) cd[at(x, y) + 3] = 0; }
+    if (FILL) {
+      const fc = document.createElement("canvas"); fc.width = W; fc.height = H; fc.getContext("2d").drawImage(gIntro, 0, 0, W, H); const fd = fc.getContext("2d").getImageData(0, 0, W, H).data;
+      for (let t = L + 2; t < end + 240; t += 0.5) for (let s2 = -85; s2 <= 85; s2 += 0.5) {
+        const x = Math.round(A.x + ux * t + nx * s2), y = Math.round(A.y + uy * t + ny * s2); if (x < 0 || y < 0 || x >= W || y >= H) continue;
+        const i = at(x, y); cd[i] = fd[i]; cd[i + 1] = fd[i + 1]; cd[i + 2] = fd[i + 2]; cd[i + 3] = fd[i + 3];
+      }
+    }
+    g.putImageData(cur, 0, 0);
+  }
+  /* 3. keep only the garment: the biggest connected opaque area */
+  px = g.getImageData(0, 0, W, H).data; const lab = new Int32Array(W * H).fill(-1); let bestId = -1, bestN = 0; const sizes = [];
+  for (let k0 = 0; k0 < W * H; k0++) { if (lab[k0] >= 0 || px[k0 * 4 + 3] < 30) continue; const id = sizes.length, st = [k0]; lab[k0] = id; let n = 0;
+    while (st.length) { const q = st.pop(); n++; const qx = q % W, qy = (q / W) | 0; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const xx = qx + dx, yy = qy + dy, nk = yy * W + xx; if (xx >= 0 && yy >= 0 && xx < W && yy < H && lab[nk] < 0 && px[nk * 4 + 3] >= 30) { lab[nk] = id; st.push(nk); } } }
+    sizes.push(n); if (n > bestN) { bestN = n; bestId = id; } }
+  const im = g.getImageData(0, 0, W, H); let removed = 0;
+  for (let k = 0; k < W * H; k++) if (lab[k] >= 0 && lab[k] !== bestId) { im.data[k * 4 + 3] = 0; removed++; }
+  /* a case that touches the garment: clear case-coloured pixels (yellow, or dark on a light garment) just past the tape's end */
+  const lum = (i) => 0.3 * im.data[i] + 0.59 * im.data[i + 1] + 0.11 * im.data[i + 2];
+  let gl = 0, gn = 0; for (let t = 0.2; t < 0.8; t += 0.05) for (const s of [-1, 1]) { const x = Math.round(A.x + ux * L * t + nx * s * (half + 25)), y = Math.round(A.y + uy * L * t + ny * s * (half + 25)); const i = at(x, y); if (im.data[i + 3] > 200) { gl += lum(i); gn++; } }
+  const gm = gn ? gl / gn : 0, light = gm > 85, darkCut = light ? 70 : -1;
+  for (let t = Math.max(L + 4, end - 40); t < end + 220; t++) for (let s = -95; s <= 95; s++) {
+    const x = Math.round(A.x + ux * t + nx * s), y = Math.round(A.y + uy * t + ny * s); if (x < 0 || y < 0 || x >= W || y >= H) continue;
+    const i = at(x, y), r = im.data[i], gg = im.data[i + 1], b = im.data[i + 2];
+    const isYellow = r > 140 && gg > 105 && b < 110 && r - b > 60, isDark = lum(i) < darkCut;
+    if (im.data[i + 3] > 0 && (isYellow || isDark)) { im.data[i + 3] = 0; removed++; }
+  }
+  /* second pass: drop any loose bits left over from the case */
+  { const d = im.data, lb = new Int32Array(W * H).fill(-1), sz = []; let bi = -1, bn = 0;
+    for (let k0 = 0; k0 < W * H; k0++) { if (lb[k0] >= 0 || d[k0 * 4 + 3] < 30) continue; const id = sz.length, st = [k0]; lb[k0] = id; let m = 0;
+      while (st.length) { const q = st.pop(); m++; const qx = q % W, qy = (q / W) | 0; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const xx = qx + dx, yy = qy + dy, nk = yy * W + xx; if (xx >= 0 && yy >= 0 && xx < W && yy < H && lb[nk] < 0 && d[nk * 4 + 3] >= 30) { lb[nk] = id; st.push(nk); } } }
+      sz.push(m); if (m > bn) { bn = m; bi = id; } }
+    for (let k = 0; k < W * H; k++) if (lb[k] >= 0 && lb[k] !== bi) { d[k * 4 + 3] = 0; removed++; } }
+  g.putImageData(im, 0, 0);
+  /* 4. the real card */
+  const ic = document.createElement("canvas"); ic.width = W; ic.height = H; const ig = ic.getContext("2d"); ig.drawImage(intro, 0, 0, W, H);
+  const ip = ig.getImageData(0, 0, W, H).data; let cx0 = W, cy0 = H, cx1 = 0, cy1 = 0;
+  for (let y = 300; y < 650; y++) for (let x = 400; x < 850; x++) { const i = (y * W + x) * 4; if (ip[i + 2] > 60 && ip[i] < 40 && ip[i + 1] < 50) { cx0 = Math.min(cx0, x); cy0 = Math.min(cy0, y); cx1 = Math.max(cx1, x); cy1 = Math.max(cy1, y); } }
+  const card = document.createElement("canvas"); card.width = cx1 - cx0 + 1; card.height = cy1 - cy0 + 1;
+  card.getContext("2d").drawImage(ic, cx0, cy0, card.width, card.height, 0, 0, card.width, card.height);
+  const cl = L / CARDS, cw = cl * 53.98 / 85.6, n = Math.ceil(CARDS - 0.02), ang = Math.atan2(uy, ux);
+  for (let k = 0; k < n; k++) {
+    const mx = A.x + ux * (k * cl + cl / 2), my = A.y + uy * (k * cl + cl / 2);
+    g.save(); g.translate(mx, my); g.rotate(ang);
+    g.shadowColor = "rgba(0,0,0,.35)"; g.shadowBlur = 6; g.shadowOffsetX = 2; g.shadowOffsetY = 3;
+    g.beginPath(); g.roundRect(-cl / 2 + 2, -cw / 2, cl - 4, cw, cw * 0.08); g.fillStyle = "#14234f"; g.fill(); g.clip(); g.shadowColor = "transparent";
+    g.drawImage(card, -cl / 2 + 2, -cw / 2, cl - 4, cw); g.restore();
+    const r = Math.min(cw, cl) * 0.2; let qx = mx + ux * cl * 0.12, qy = my + uy * cl * 0.12;
+    if (Math.hypot(qx - B.x, qy - B.y) < r + 16) { qx = B.x - ux * (r + 18); qy = B.y - uy * (r + 18); }
+    g.fillStyle = "#fff"; g.beginPath(); g.arc(qx, qy, r, 0, 7); g.fill();
+    g.fillStyle = "#111"; g.font = `800 ${r * 1.3}px Arial`; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(String(k + 1), qx, qy + r * 0.08);
+  }
+  [A, B].forEach((d) => { g.fillStyle = "#e01b1b"; g.beginPath(); g.arc(d.x, d.y, 9, 0, 7); g.fill(); });
+  document.title = "OK " + JSON.stringify({ A: [A.x | 0, A.y | 0], B: [B.x | 0, B.y | 0], dots: blobs.length, tw: Math.round(tw), end: Math.round(end - L), removed, islands: sizes.length, cards: n });
+})().catch((e) => (document.title = "ERR " + e));
+</script></body></html>

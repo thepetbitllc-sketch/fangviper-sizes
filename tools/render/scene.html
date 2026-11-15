@@ -1,0 +1,282 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>FangViper measuring scenes</title>
+<style>html,body{margin:0;background:#fff;overflow:hidden}canvas{display:block}</style>
+<script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }</script>
+</head><body>
+<script type="module">
+/* Realistic flat-lay pictures for the size finder: a garment laid flat on a wooden floor, a real bank card,
+   a yellow tape measure (or cards laid end to end) exactly where to measure.  ?g=tee&v=intro|chest-tape|chest-card|length-tape|length-card
+   Units are centimetres. The garment lies in the XY plane (y up the page), the camera looks straight down. */
+import * as THREE from "three";
+const P = new URLSearchParams(location.search), G = P.get("g") || "tee", V = P.get("v") || "intro", SIZE = +(P.get("px") || 1200);
+
+/* ---------- small helpers ---------- */
+const cv = (w, h) => { const c = document.createElement("canvas"); c.width = w; c.height = h; return c; };
+let seed = 12345; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+function noiseCanvas(w, h, cells, amp) { /* smooth value noise, grey */
+  const c = cv(w, h), g = c.getContext("2d"), small = cv(cells, Math.round(cells * h / w)), s = small.getContext("2d");
+  const id = s.createImageData(small.width, small.height);
+  for (let i = 0; i < id.data.length; i += 4) { const v = 128 + (rnd() - 0.5) * 2 * amp; id.data[i] = id.data[i + 1] = id.data[i + 2] = v; id.data[i + 3] = 255; }
+  s.putImageData(id, 0, 0); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = "high"; g.drawImage(small, 0, 0, w, h); return c;
+}
+function heightToNormal(hc, strength) { /* height canvas -> normal map */
+  const w = hc.width, h = hc.height, src = hc.getContext("2d").getImageData(0, 0, w, h).data, out = cv(w, h), o = out.getContext("2d"), id = o.createImageData(w, h);
+  const H = (x, y) => src[(((y + h) % h) * w + ((x + w) % w)) * 4] / 255;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const dx = (H(x + 1, y) - H(x - 1, y)) * strength, dy = (H(x, y + 1) - H(x, y - 1)) * strength, l = Math.hypot(dx, dy, 1), i = (y * w + x) * 4;
+    id.data[i] = (-dx / l * 0.5 + 0.5) * 255; id.data[i + 1] = (dy / l * 0.5 + 0.5) * 255; id.data[i + 2] = (1 / l * 0.5 + 0.5) * 255; id.data[i + 3] = 255;
+  }
+  o.putImageData(id, 0, 0); return out;
+}
+const tex = (c, srgb = true) => { const t = new THREE.CanvasTexture(c); if (srgb) t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return t; };
+
+/* ---------- renderer, camera, light ---------- */
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setSize(SIZE, SIZE); renderer.setPixelRatio(1);
+renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+const cam = new THREE.PerspectiveCamera(26, 1, 10, 1000);
+scene.add(new THREE.HemisphereLight(0xfffaf2, 0xb8a58c, 1.15));
+const sun = new THREE.DirectionalLight(0xfff4e6, 2.1); sun.position.set(-95, 75, 105); sun.castShadow = true;
+sun.shadow.mapSize.set(4096, 4096); sun.shadow.radius = 6; sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.02;
+Object.assign(sun.shadow.camera, { left: -70, right: 70, top: 70, bottom: -70, near: 10, far: 400 });
+scene.add(sun); scene.add(sun.target);
+const fill = new THREE.DirectionalLight(0xffffff, 0.35); fill.position.set(80, -40, 120); scene.add(fill);
+
+/* ---------- light oak floor ---------- */
+(function floor() {
+  const W = 2048, c = cv(W, W), g = c.getContext("2d"), plank = 256;
+  for (let y = 0; y < W; y += plank) {
+    const base = 205 + rnd() * 18;
+    g.fillStyle = `rgb(${base},${base * 0.82},${base * 0.62})`; g.fillRect(0, y, W, plank);
+    for (let k = 0; k < 140; k++) { /* grain */
+      const yy = y + rnd() * plank, a = 0.04 + rnd() * 0.07; g.strokeStyle = `rgba(120,80,40,${a})`; g.lineWidth = 0.6 + rnd() * 1.8;
+      g.beginPath(); g.moveTo(0, yy); for (let x = 0; x <= W; x += 64) g.lineTo(x, yy + Math.sin(x / (90 + rnd() * 60) + k) * 3); g.stroke();
+    }
+    g.fillStyle = "rgba(90,60,30,.35)"; g.fillRect(0, y, W, 2);
+    let x = (rnd() * 0.6 + 0.2) * W; g.fillRect(x, y, 2, plank);
+  }
+  const t = tex(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(2.2, 2.2);
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), new THREE.MeshStandardMaterial({ map: t, roughness: 0.78 }));
+  m.receiveShadow = true; scene.add(m);
+})();
+
+/* ---------- fabric material for a flat shape (UV = cm) ---------- */
+function fabric(color, bbox, paint) {
+  const PX = 26, W = Math.round((bbox[2] - bbox[0]) * PX), H = Math.round((bbox[3] - bbox[1]) * PX);
+  const c = cv(W, H), g = c.getContext("2d");
+  g.fillStyle = color; g.fillRect(0, 0, W, H);
+  g.globalAlpha = 0.18; g.globalCompositeOperation = "multiply"; g.drawImage(noiseCanvas(W, H, 40, 50), 0, 0); /* soft mottling */
+  g.globalAlpha = 0.12; g.drawImage(noiseCanvas(W, H, 600, 90), 0, 0); g.globalAlpha = 1; g.globalCompositeOperation = "source-over";
+  const toPx = (x, y) => [(x - bbox[0]) * PX, (bbox[3] - y) * PX];
+  if (paint) paint(g, toPx, PX);
+  /* height: fine knit + soft folds */
+  const hc = cv(1024, Math.round(1024 * H / W)), hg = hc.getContext("2d");
+  hg.drawImage(noiseCanvas(hc.width, hc.height, 14, 70), 0, 0);
+  hg.globalAlpha = 0.5; hg.drawImage(noiseCanvas(hc.width, hc.height, 380, 60), 0, 0); hg.globalAlpha = 1;
+  const map = tex(c), nrm = tex(heightToNormal(hc, 2.2), false);
+  [map, nrm].forEach((t) => { t.repeat.set(1 / (bbox[2] - bbox[0]), 1 / (bbox[3] - bbox[1])); t.offset.set(-bbox[0] / (bbox[2] - bbox[0]), -bbox[1] / (bbox[3] - bbox[1])); });
+  return new THREE.MeshStandardMaterial({ map, normalMap: nrm, normalScale: new THREE.Vector2(0.9, 0.9), roughness: 0.97 });
+}
+/* soft cloth: a dense plane cut to the garment's outline, raised like fabric (round edges that fall to the floor,
+   soft folds), lit and shadowed for real. folds: [[x1,y1,x2,y2,widthCm,strength]] in cm. */
+function cloth(shape, bbox, color, opts = {}) {
+  const PX = 14, W = Math.round((bbox[2] - bbox[0]) * PX), H = Math.round((bbox[3] - bbox[1]) * PX);
+  const toPx = (x, y) => [(x - bbox[0]) * PX, (bbox[3] - y) * PX];
+  const outline = (g) => { const pts = shape.getPoints(160); g.beginPath(); pts.forEach((p, i) => (i ? g.lineTo : g.moveTo).call(g, ...toPx(p.x, p.y))); g.closePath(); };
+  /* silhouette */
+  const sil = cv(W, H), sg = sil.getContext("2d"); sg.fillStyle = "#000"; sg.fillRect(0, 0, W, H); sg.fillStyle = "#fff"; outline(sg); sg.fill();
+  /* height: rounded edges (blurred silhouette, kept inside) + folds + knit */
+  const hc = cv(W, H), hg = hc.getContext("2d");
+  hg.fillStyle = "#000"; hg.fillRect(0, 0, W, H); hg.filter = `blur(${3.2 * PX}px)`; hg.globalAlpha = 0.62; hg.drawImage(sil, 0, 0); hg.globalAlpha = 1; hg.filter = "none";
+  hg.globalCompositeOperation = "lighter";
+  (opts.folds || []).forEach(([x1, y1, x2, y2, w, s]) => {
+    hg.filter = `blur(${w * PX * 0.45}px)`; hg.strokeStyle = s > 0 ? `rgba(255,255,255,${s})` : "rgba(0,0,0,0)"; hg.lineWidth = w * PX * 0.5; hg.lineCap = "round";
+    hg.beginPath(); hg.moveTo(...toPx(x1, y1)); hg.lineTo(...toPx(x2, y2)); hg.stroke();
+  });
+  hg.filter = "none"; hg.globalAlpha = 0.07; hg.drawImage(noiseCanvas(W, H, 24, 90), 0, 0); hg.globalAlpha = 1;
+  hg.globalCompositeOperation = "destination-in"; hg.drawImage(sil, 0, 0); hg.globalCompositeOperation = "source-over";
+  /* colour: fabric + mottling + folds shading + details */
+  const c = cv(W * 2, H * 2), g = c.getContext("2d"); g.scale(2, 2);
+  g.fillStyle = color; g.fillRect(0, 0, W, H);
+  g.globalCompositeOperation = "multiply"; g.globalAlpha = 0.05; g.drawImage(noiseCanvas(W, H, 50, 60), 0, 0); g.globalAlpha = 0.1; g.drawImage(noiseCanvas(W, H, 700, 120), 0, 0);
+  g.globalAlpha = 1; g.globalCompositeOperation = "source-over";
+  /* folds: a lit side and a shaded side */
+  (opts.folds || []).forEach(([x1, y1, x2, y2, w, s]) => {
+    const nx = -(y2 - y1), ny = (x2 - x1), nl = Math.hypot(nx, ny), ox = nx / nl * w * 0.28, oy = ny / nl * w * 0.28;
+    const mx = (x1 + x2) / 2 + nx / nl * w * 0.6, my = (y1 + y2) / 2 + ny / nl * w * 0.6; /* bend */
+    [[ox, oy, "255,255,255", 0.075 * s / 0.5], [-ox, -oy, "40,30,20", 0.09 * s / 0.5]].forEach(([dx, dy, rgb, a]) => {
+      g.save(); g.filter = `blur(${w * PX * 0.45}px)`; g.strokeStyle = `rgba(${rgb},${a})`; g.lineWidth = w * PX * 0.55; g.lineCap = "round";
+      g.beginPath(); g.moveTo(...toPx(x1 + dx, y1 + dy)); g.quadraticCurveTo(...toPx(mx + dx, my + dy), ...toPx(x2 + dx, y2 + dy)); g.stroke(); g.restore();
+    });
+  });
+  /* edges roll down: a soft inner shade along the outline */
+  g.save(); outline(g); g.clip(); g.filter = `blur(${1.1 * PX}px)`; g.strokeStyle = "rgba(30,22,14,.30)"; g.lineWidth = 2.2 * PX; outline(g); g.stroke(); g.restore();
+  if (opts.paint) { g.save(); opts.paint(g, toPx, PX); g.restore(); }
+  /* normal map: from height + fine knit */
+  const nh = cv(W, H), ng = nh.getContext("2d"); ng.drawImage(hc, 0, 0); ng.globalAlpha = 0.25; ng.drawImage(noiseCanvas(W * 2, H * 2, 1400, 110), 0, 0, W, H);
+  const geo = new THREE.PlaneGeometry(bbox[2] - bbox[0], bbox[3] - bbox[1], 420, Math.round(420 * H / W));
+  geo.translate((bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2, 0);
+  /* keep only the triangles on the garment, so it casts a real shadow */
+  const sd = sg.getImageData(0, 0, W, H).data, uv = geo.attributes.uv, idx = geo.index.array, keep = [];
+  const inside = (i) => { const x = Math.min(W - 1, Math.round(uv.getX(i) * (W - 1))), y = Math.min(H - 1, Math.round((1 - uv.getY(i)) * (H - 1))); return sd[(y * W + x) * 4] > 100; };
+  for (let t = 0; t < idx.length; t += 3) if (inside(idx[t]) || inside(idx[t + 1]) || inside(idx[t + 2])) keep.push(idx[t], idx[t + 1], idx[t + 2]);
+  geo.setIndex(keep);
+  /* raise the fabric on the CPU (some renderers can't read textures in the vertex stage) */
+  const hd = hg.getImageData(0, 0, W, H).data, pos = geo.attributes.position, T = opts.thick || 1.6;
+  for (let i = 0; i < pos.count; i++) { const x = Math.min(W - 1, Math.round(uv.getX(i) * (W - 1))), y = Math.min(H - 1, Math.round((1 - uv.getY(i)) * (H - 1))); pos.setZ(i, hd[(y * W + x) * 4] / 255 * T); }
+  geo.computeVertexNormals();
+  const alpha = tex(sil, false), disp = tex(hc, false); (window.__dbg = window.__dbg || []).push({ hc, sil, geo });
+  const mat = new THREE.MeshStandardMaterial({ map: tex(c), normalMap: tex(heightToNormal(nh, 2.0), false), normalScale: new THREE.Vector2(0.8, 0.8),
+    alphaMap: alpha, alphaTest: 0.5, roughness: 0.96 });
+  const m = new THREE.Mesh(geo, mat); m.castShadow = true; m.receiveShadow = true;
+  const grp = new THREE.Group(); grp.add(m);
+  [[1.4 * PX, 0.55, 0.5, -0.7], [5 * PX, 0.32, 1.6, -2.2]].forEach(([blur, a, dx, dy]) => {
+    const sc = cv(W, H), sx = sc.getContext("2d"); sx.filter = `blur(${blur}px)`; sx.fillStyle = `rgba(25,15,5,${a})`; outline(sx); sx.fill();
+    const sp = new THREE.Mesh(new THREE.PlaneGeometry(bbox[2] - bbox[0], bbox[3] - bbox[1]), new THREE.MeshBasicMaterial({ map: tex(sc), transparent: true, depthWrite: false }));
+    sp.position.set((bbox[0] + bbox[2]) / 2 + dx, (bbox[1] + bbox[3]) / 2 + dy, 0.05); grp.add(sp);
+  });
+  return grp;
+}
+function flatPiece(shape, mat, depth = 0.9) {
+  const geo = new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: true, bevelThickness: 0.55, bevelSize: 0.7, bevelSegments: 6, curveSegments: 64 });
+  const side = mat.clone(); side.map = mat.map; side.color = new THREE.Color(0.93, 0.93, 0.93);
+  const m = new THREE.Mesh(geo, [mat, side]); m.castShadow = true; m.receiveShadow = true; return m;
+}
+function tube(points, r, color, z) { /* rib bands, piping */
+  const curve = new THREE.CatmullRomCurve3(points.map((p) => new THREE.Vector3(p[0], p[1], z)));
+  const m = new THREE.Mesh(new THREE.TubeGeometry(curve, 120, r, 14, false), new THREE.MeshStandardMaterial({ color, roughness: 0.95 }));
+  m.castShadow = true; return m;
+}
+
+/* ---------- T-shirt (chest 54 cm flat, length 74 cm from the high shoulder point) ---------- */
+const TEE = { chestY: 50, armpit: 27, hpsX: 9.5, top: 74, hem: 0.6 };
+function makeTee(color = "#a7abb0") {
+  const s = new THREE.Shape(), R = (pts) => pts, L = (pts) => pts.map(([x, y]) => [-x, y]);
+  /* right half, from the back neck centre going clockwise to the hem centre */
+  const right = [["M", 0, 72.2], ["Q", 5, 72.4, 9.5, 74], ["L", 23, 70.6], ["Q", 30, 64, 36.4, 57.2], ["L", 30.8, 47.6], ["Q", 28.2, 50.6, 27, 52.4],
+                 ["Q", 27.1, 26, 27.3, 1.4], ["Q", 14, 0, 0, 0.3]];
+  const draw = (path, mirror) => path.forEach(([k, ...a]) => {
+    const p = mirror ? a.map((v, i) => (i % 2 ? v : -v)) : a;
+    if (k === "M") s.moveTo(...p); else if (k === "L") s.lineTo(...p); else s.quadraticCurveTo(...p);
+  });
+  draw(right, false);
+  /* back along the left half in reverse */
+  s.quadraticCurveTo(-14, 0, -27.3, 1.4); s.quadraticCurveTo(-27.1, 26, -27, 52.4); s.quadraticCurveTo(-28.2, 50.6, -30.8, 47.6);
+  s.lineTo(-36.4, 57.2); s.quadraticCurveTo(-30, 64, -23, 70.6); s.lineTo(-9.5, 74); s.quadraticCurveTo(-5, 72.4, 0, 72.2);
+  const bbox = [-40, -3, 40, 77];
+  const folds = [[-23, 47, -11, 28, 4, 0.55], [23, 46, 12, 27, 4, 0.5], [-31, 58, -24, 52, 2.5, 0.5], [30, 57, 24, 51, 2.5, 0.5],
+                 [5, 60, 10, 38, 3, 0.35], [-8, 25, 3, 17, 5, 0.35], [-20, 66, -14, 60, 3, 0.3]];
+  const paintTee = (g, toPx, PX) => {
+    /* the inside of the back neck shows through the front neck opening: a little darker */
+    g.fillStyle = "rgba(0,0,0,.28)"; g.beginPath(); let p = toPx(-9.5, 74); g.moveTo(...p);
+    g.quadraticCurveTo(...toPx(-8.5, 65.5), ...toPx(0, 64.6)); g.quadraticCurveTo(...toPx(8.5, 65.5), ...toPx(9.5, 74));
+    g.quadraticCurveTo(...toPx(5, 72.4), ...toPx(0, 72.2)); g.quadraticCurveTo(...toPx(-5, 72.4), ...toPx(-9.5, 74)); g.fill();
+    /* stitches: hem, sleeve hems, shoulder seams */
+    g.strokeStyle = "rgba(255,255,255,.22)"; g.lineWidth = 0.09 * PX; g.setLineDash([0.35 * PX, 0.22 * PX]);
+    const line = (a, b) => { g.beginPath(); g.moveTo(...toPx(...a)); g.lineTo(...toPx(...b)); g.stroke(); };
+    for (const off of [2.2, 2.7]) { g.beginPath(); g.moveTo(...toPx(-27.1, 1.4 + off)); g.quadraticCurveTo(...toPx(0, off - 0.1), ...toPx(27.1, 1.4 + off)); g.stroke(); }
+    for (const sgn of [1, -1]) for (const off of [2, 2.5]) line([sgn * (36.4 - off * 0.86), 57.2 - off * 0.5], [sgn * (30.8 - off * 0.86), 47.6 - off * 0.5]);
+    g.setLineDash([]); g.strokeStyle = "rgba(0,0,0,.25)"; g.lineWidth = 0.08 * PX;
+    for (const sgn of [1, -1]) { line([sgn * 9.5, 74], [sgn * 23, 70.6]); g.beginPath(); g.moveTo(...toPx(sgn * 23, 70.6)); g.quadraticCurveTo(...toPx(sgn * 25.5, 61), ...toPx(sgn * 27, 52.4)); g.stroke(); }
+  };
+  const grp = new THREE.Group(); grp.add(cloth(s, bbox, color, { folds, paint: paintTee, thick: 2.6 }));
+  const rib = new THREE.Color(color).multiplyScalar(0.9);
+  grp.add(tube([[-9.6, 73.6], [-7.6, 67.6], [0, 64.7], [7.6, 67.6], [9.6, 73.6]], 0.62, rib, 2.6));  /* front neck rib */
+  grp.add(tube([[-9.2, 73.3], [-4.8, 72.5], [0, 72.3], [4.8, 72.5], [9.2, 73.3]], 0.42, rib, 2.3)); /* back neck rib */
+  return grp;
+}
+
+/* ---------- bank card (85.6 x 53.98 mm), face up so it is recognisable ---------- */
+function makeCard(x, y, rot = 0, ghost = false) {
+  const w = 8.56, h = 5.398, r = 0.32, s = new THREE.Shape();
+  s.moveTo(r, 0); s.lineTo(w - r, 0); s.quadraticCurveTo(w, 0, w, r); s.lineTo(w, h - r); s.quadraticCurveTo(w, h, w - r, h);
+  s.lineTo(r, h); s.quadraticCurveTo(0, h, 0, h - r); s.lineTo(0, r); s.quadraticCurveTo(0, 0, r, 0);
+  const c = cv(1712, 1080), g = c.getContext("2d");
+  const gr = g.createLinearGradient(0, 0, 1712, 1080); gr.addColorStop(0, "#1f3c88"); gr.addColorStop(0.55, "#16295e"); gr.addColorStop(1, "#0c1838");
+  g.fillStyle = gr; g.fillRect(0, 0, 1712, 1080);
+  g.globalAlpha = 0.12; g.strokeStyle = "#fff"; g.lineWidth = 3; for (let i = 0; i < 14; i++) { g.beginPath(); g.arc(1500, 1100, 200 + i * 70, Math.PI, 1.5 * Math.PI); g.stroke(); } g.globalAlpha = 1;
+  /* chip */
+  const cg = g.createLinearGradient(170, 380, 420, 600); cg.addColorStop(0, "#f3d98b"); cg.addColorStop(0.5, "#c9a13b"); cg.addColorStop(1, "#e8c56a");
+  g.fillStyle = cg; g.beginPath(); g.roundRect(170, 370, 250, 195, 30); g.fill();
+  g.strokeStyle = "rgba(90,65,10,.55)"; g.lineWidth = 5; g.beginPath(); g.moveTo(170, 435); g.lineTo(420, 435); g.moveTo(170, 500); g.lineTo(420, 500); g.moveTo(295, 370); g.lineTo(295, 435); g.moveTo(295, 500); g.lineTo(295, 565); g.stroke();
+  /* contactless */
+  g.strokeStyle = "rgba(255,255,255,.85)"; g.lineWidth = 12; g.lineCap = "round"; for (let i = 0; i < 4; i++) { g.beginPath(); g.arc(470, 467, 30 + i * 26, -0.7, 0.7); g.stroke(); }
+  g.fillStyle = "rgba(235,240,255,.92)"; g.font = "600 92px 'OCR A Std', 'Courier New', monospace"; g.fillText("4000  1234  5678  9010", 150, 760);
+  g.font = "500 52px Arial"; g.fillStyle = "rgba(235,240,255,.75)"; g.fillText("VALID THRU 12/30", 150, 860); g.fillText("YOUR NAME", 150, 950);
+  g.font = "italic 800 120px Arial"; g.fillStyle = "rgba(255,255,255,.95)"; g.fillText("DEBIT", 1290, 180);
+  g.beginPath(); g.fillStyle = "#eb001b"; g.globalAlpha = .9; g.arc(1420, 900, 95, 0, 7); g.fill(); g.fillStyle = "#f79e1b"; g.arc(1540, 900, 95, 0, 7); g.fill(); g.globalAlpha = 1;
+  const t = tex(c); t.repeat.set(1 / w, 1 / h);
+  const mat = new THREE.MeshStandardMaterial({ map: t, roughness: 0.32, metalness: 0.15, transparent: ghost, opacity: ghost ? 0.38 : 1 });
+  const edge = new THREE.MeshStandardMaterial({ color: 0xdfe3ec, roughness: 0.4, transparent: ghost, opacity: ghost ? 0.38 : 1 });
+  const m = new THREE.Mesh(new THREE.ExtrudeGeometry(s, { depth: 0.076, bevelEnabled: true, bevelThickness: 0.01, bevelSize: 0.01, bevelSegments: 2 }), [mat, edge]);
+  m.castShadow = !ghost; m.receiveShadow = true;
+  const holder = new THREE.Group(); m.position.set(-w / 2, -h / 2, 0); holder.add(m); holder.position.set(x, y, 0); holder.rotation.z = rot; return holder;
+}
+
+/* ---------- yellow tape measure from a to b (cm ticks), with the case beyond b ---------- */
+function makeTape(a, b, z) {
+  const len = Math.hypot(b[0] - a[0], b[1] - a[1]), ang = Math.atan2(b[1] - a[1], b[0] - a[0]), wTape = 2.5, ext = 9;
+  const L = len + ext, PX = 60, c = cv(Math.round(L * PX), Math.round(wTape * PX)), g = c.getContext("2d");
+  g.fillStyle = "#f6c90e"; g.fillRect(0, 0, c.width, c.height);
+  g.fillStyle = "#1a1a1a";
+  for (let mm = 0; mm <= L * 10; mm++) {
+    const x = mm / 10 * PX, h = mm % 10 === 0 ? 0.62 : mm % 5 === 0 ? 0.42 : 0.24;
+    g.fillRect(x - 1, 0, mm % 10 === 0 ? 3 : 2, h * c.height);
+    if (mm % 50 === 0 && mm > 0) { g.font = `800 ${0.46 * c.height}px Arial`; g.textAlign = "center"; g.fillStyle = mm % 100 === 0 ? "#c4161c" : "#1a1a1a"; g.fillText(String(mm / 10), x, c.height * 0.97); g.fillStyle = "#1a1a1a"; }
+  }
+  const t = tex(c); const geo = new THREE.BoxGeometry(L, wTape, 0.06);
+  const m = new THREE.Mesh(geo, [0, 1, 2, 3, 4, 5].map((i) => i === 4 ? new THREE.MeshStandardMaterial({ map: t, roughness: 0.45 }) : new THREE.MeshStandardMaterial({ color: 0xe0b40a })));
+  m.castShadow = true; m.receiveShadow = true;
+  const grp = new THREE.Group(); m.position.set(L / 2, 0, 0); grp.add(m);
+  /* metal hook at the zero end */
+  const hook = new THREE.Mesh(new THREE.BoxGeometry(0.35, wTape + 0.3, 0.5), new THREE.MeshStandardMaterial({ color: 0x9aa0a6, metalness: 0.85, roughness: 0.3 }));
+  hook.position.set(-0.1, 0, 0.2); hook.castShadow = true; grp.add(hook);
+  /* case */
+  const cs = new THREE.Shape(), R = 3.6; cs.absarc(0, 0, R, 0, Math.PI * 2);
+  const caseM = new THREE.Mesh(new THREE.ExtrudeGeometry(cs, { depth: 2.6, bevelEnabled: true, bevelThickness: 0.5, bevelSize: 0.5, bevelSegments: 5, curveSegments: 48 }),
+    new THREE.MeshStandardMaterial({ color: 0x2b2b2b, roughness: 0.55 }));
+  caseM.position.set(L + R - 0.5, 0, -0.4); caseM.castShadow = true; grp.add(caseM);
+  const badge = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.2, 0.2, 48), new THREE.MeshStandardMaterial({ color: 0xf6c90e, roughness: 0.4 }));
+  badge.rotation.x = Math.PI / 2; badge.position.set(L + R - 0.5, 0, 2.9); grp.add(badge);
+  grp.position.set(a[0], a[1], z); grp.rotation.z = ang; return grp;
+}
+/* small dark markers on the two measuring points */
+function pin(x, y, z) {
+  const m = new THREE.Mesh(new THREE.SphereGeometry(0.75, 32, 16), new THREE.MeshStandardMaterial({ color: 0xe0442f, roughness: 0.35 }));
+  m.position.set(x, y, z + 0.4); m.castShadow = true; return m;
+}
+/* ghost outlines: where the card goes next, with numbers */
+function ghostRow(a, n, frac, z, dir = [1, 0]) {
+  const grp = new THREE.Group();
+  for (let i = 0; i < Math.ceil(n + frac); i++) {
+    const real = i === 0, cx = a[0] + dir[0] * (i * 8.56 + 4.28), cy = a[1] + dir[1] * (i * 8.56 + 4.28), rot = Math.atan2(dir[1], dir[0]);
+    const card = makeCard(cx, cy, rot, !real); card.position.z = z + (real ? 0.05 : 0.02); grp.add(card);
+    const lc = cv(256, 256), lg = lc.getContext("2d"); lg.fillStyle = "#fff"; lg.beginPath(); lg.arc(128, 128, 110, 0, 7); lg.fill();
+    lg.fillStyle = "#19110B"; lg.font = "700 150px Arial"; lg.textAlign = "center"; lg.textBaseline = "middle"; lg.fillText(String(i + 1), 128, 138);
+    const lab = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 2.6), new THREE.MeshBasicMaterial({ map: tex(lc), transparent: true }));
+    lab.position.set(cx, cy, z + 0.35); grp.add(lab);
+  }
+  return grp;
+}
+
+/* ---------- compose the requested view ---------- */
+let center = [0, 37], spanCm = 92;
+if (G === "tee") {
+  scene.add(makeTee());
+  const zTop = 2.9, y = TEE.chestY;
+  if (V === "intro") { scene.add(makeCard(-4, 38, -0.14).translateZ(zTop)); scene.add(makeTape([26, -4], [27, -4.4], 0.2)); center = [2, 35]; spanCm = 98; }
+  if (V === "chest-tape") { scene.add(makeTape([-TEE.armpit, y], [TEE.armpit, y], zTop)); scene.add(pin(-TEE.armpit, y, zTop), pin(TEE.armpit, y, zTop)); }
+  if (V === "chest-card") { scene.add(ghostRow([-TEE.armpit, y], 6, 0.3, zTop)); scene.add(pin(-TEE.armpit, y, zTop + 0.2), pin(TEE.armpit, y, zTop + 0.2)); center = [0, 47]; spanCm = 78; }
+  if (V === "length-tape") { scene.add(makeTape([TEE.hpsX + 0.5, TEE.top], [TEE.hpsX + 0.5, TEE.hem], zTop)); scene.add(pin(TEE.hpsX + 0.5, TEE.top, zTop), pin(TEE.hpsX + 0.5, TEE.hem + 0.5, zTop)); center = [0, 33]; spanCm = 104; }
+  if (V === "length-card") { scene.add(ghostRow([TEE.hpsX + 3, TEE.top], 8, 0.6, zTop, [0, -1])); scene.add(pin(TEE.hpsX + 3, TEE.top, zTop + 0.2), pin(TEE.hpsX + 3, TEE.hem + 0.5, zTop + 0.2)); }
+}
+/* camera straight above, framing spanCm */
+const dist = spanCm / 2 / Math.tan(THREE.MathUtils.degToRad(13));
+cam.position.set(center[0], center[1] - 6, dist); if (P.get("tilt")) cam.position.set(center[0] + 20, center[1] - 120, 35); cam.lookAt(center[0], center[1], 0);
+sun.target.position.set(center[0], center[1], 0);
+renderer.render(scene, cam);
+document.title = "DONE";
+</script></body></html>

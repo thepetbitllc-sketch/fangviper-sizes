@@ -1,1 +1,13 @@
 _src/
+# size finder: working files stay local (only the .webp pictures are served)
+assets/finder/*.png
+assets/measure-photo.js
+tools/shots*/
+tools/render/out/
+tools/render/ai/out/
+tools/render/ai/refs/
+tools/render/ai/rejected/
+tools/render/ai/*.log
+tools/render/ai/tasks-log.tsv
+tools/test-shirt*.png
+tools/test-shirt*.jpg

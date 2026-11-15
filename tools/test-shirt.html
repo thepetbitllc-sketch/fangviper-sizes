@@ -1,0 +1,41 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>test shirt photo</title>
+<style>html,body{margin:0;background:#000}canvas{display:block;width:1400px;height:1750px}</style></head>
+<body><canvas id="c"></canvas>
+<script>
+/* A known test photo for the card measuring page: a shirt laid flat, photographed from above at 3.5 px per mm
+   (rendered at 2x: 1400 x 1750 css px = 2800 x 3500 px, a 800 x 1000 mm patch of floor).
+   Shirt: chest 540 mm flat (108 cm around), shoulders 465 mm. Bamboo chart: that is exactly size 40.
+   Card 85.6 x 53.98 mm, face down, centred at (400, 450) mm, turned 8 degrees. */
+const PX = 3.5, c = document.getElementById("c"); c.width = 2800; c.height = 3500;
+const g = c.getContext("2d"); g.scale(PX, PX);
+/* wooden floor */
+g.fillStyle = "#8a6a4c"; g.fillRect(0, 0, 800, 1000);
+for (let y = 0; y < 1000; y += 90) { g.fillStyle = y / 90 % 2 ? "#8f6f50" : "#856548"; g.fillRect(0, y, 800, 88); g.fillStyle = "#6e5039"; g.fillRect(0, y + 88, 800, 2); }
+/* shirt */
+const s = [[330, 95], [167.5, 130], [40, 690], [130, 705], [130, 330], [135, 840], [665, 840], [670, 330], [670, 705], [760, 690], [632.5, 130], [470, 95], [400, 125]];
+g.shadowColor = "rgba(0,0,0,.35)"; g.shadowBlur = 8; g.shadowOffsetY = 3;
+g.fillStyle = "#f3f1ec"; g.beginPath(); s.forEach((p, i) => i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.closePath(); g.fill();
+g.shadowColor = "transparent";
+g.strokeStyle = "#cfcac0"; g.lineWidth = 1.2; g.beginPath(); g.moveTo(400, 125); g.lineTo(400, 840); g.stroke();
+g.beginPath(); g.moveTo(167.5, 130); g.lineTo(130, 330); g.moveTo(632.5, 130); g.lineTo(670, 330); g.stroke(); /* sleeve seams */
+for (let y = 170; y < 820; y += 95) { g.fillStyle = "#d8d3c9"; g.beginPath(); g.arc(406, y, 4, 0, 7); g.fill(); }
+/* collar */
+g.fillStyle = "#e9e6df"; g.beginPath(); g.moveTo(330, 95); g.lineTo(370, 160); g.lineTo(400, 125); g.lineTo(430, 160); g.lineTo(470, 95); g.quadraticCurveTo(400, 120, 330, 95); g.fill(); g.stroke();
+/* card, face down: plain dark back with a magnetic stripe */
+const a = 8 * Math.PI / 180, L = 85.6, W = 53.98;
+g.save(); g.translate(400, 450); g.rotate(a);
+g.shadowColor = "rgba(0,0,0,.4)"; g.shadowBlur = 4; g.shadowOffsetY = 1.5;
+g.fillStyle = "#23324a"; g.beginPath(); g.roundRect(-L / 2, -W / 2, L, W, 3.2); g.fill(); g.shadowColor = "transparent";
+g.fillStyle = "#0d0d0d"; g.fillRect(-L / 2, -W / 2 + 6, L, 9);
+g.fillStyle = "#e8e4dc"; g.fillRect(-L / 2 + 6, -W / 2 + 22, 50, 8);
+g.restore();
+/* the exact answer, in photo pixels, for the browser test */
+const rot = (x, y) => ({ x: (400 + x * Math.cos(a) - y * Math.sin(a)) * PX, y: (450 + x * Math.sin(a) + y * Math.cos(a)) * PX });
+window.TRUTH = {
+  corners: [rot(-L / 2, -W / 2), rot(L / 2, -W / 2), rot(L / 2, W / 2), rot(-L / 2, W / 2)],
+  chest: [{ x: 130 * PX, y: 330 * PX }, { x: 670 * PX, y: 330 * PX }],
+  shoulder: [{ x: 167.5 * PX, y: 130 * PX }, { x: 632.5 * PX, y: 130 * PX }]
+};
+document.title = JSON.stringify(window.TRUTH);
+</script></body></html>

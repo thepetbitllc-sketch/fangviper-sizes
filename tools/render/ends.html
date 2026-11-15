@@ -1,0 +1,29 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>ends</title>
+<style>body{margin:0;background:#fff;font:600 15px Arial}#g{display:grid;grid-template-columns:repeat(2,640px);gap:8px;padding:8px}
+.row{display:flex;gap:6px;align-items:flex-start}.row canvas{border:1px solid #ccc}.lab{width:640px;font-size:14px}</style></head>
+<body><div id="g"></div>
+<script>
+/* Zoomed check of both measuring points of each tape picture: ?list=a,b,c  (pictures in ai/out). Start | end crops at 2x. */
+const list = new URLSearchParams(location.search).get("list").split(",");
+const load = (src) => new Promise((ok, bad) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => bad(src); i.src = src; });
+(async () => {
+  for (const name of list) {
+    const im = await load(`ai/out/${name}.png`), W = 1254, H = 1254, c = document.createElement("canvas"); c.width = W; c.height = H;
+    const g = c.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, W, H); g.drawImage(im, 0, 0, W, H);
+    const px = g.getImageData(0, 0, W, H).data, seen = new Uint8Array(W * H), blobs = [];
+    const red = (k) => px[k * 4] > 190 && px[k * 4 + 1] < 80 && px[k * 4 + 2] < 80;
+    for (let k0 = 0; k0 < W * H; k0++) { if (seen[k0] || !red(k0)) continue; const st = [k0]; seen[k0] = 1; let n = 0, sx = 0, sy = 0, x0 = W, x1 = 0, y0 = H, y1 = 0;
+      while (st.length) { const q = st.pop(), qx = q % W, qy = (q / W) | 0; n++; sx += qx; sy += qy; x0 = Math.min(x0, qx); x1 = Math.max(x1, qx); y0 = Math.min(y0, qy); y1 = Math.max(y1, qy);
+        for (const d of [1, -1, W, -W]) { const nk = q + d; if (nk >= 0 && nk < W * H && !seen[nk] && red(nk)) { seen[nk] = 1; st.push(nk); } } }
+      const w = x1 - x0 + 1, h = y1 - y0 + 1; if (n > 40 && w / h > 0.6 && w / h < 1.6 && n > 0.55 * w * h) blobs.push({ x: sx / n, y: sy / n }); }
+    let A, B, best = -1; for (let i = 0; i < blobs.length; i++) for (let j = i + 1; j < blobs.length; j++) { const d = Math.hypot(blobs[i].x - blobs[j].x, blobs[i].y - blobs[j].y); if (d > best) { best = d; A = blobs[i]; B = blobs[j]; } }
+    const box = document.createElement("div"); box.innerHTML = `<div class="lab">${name} — dots found: ${blobs.length}</div>`;
+    const row = document.createElement("div"); row.className = "row"; box.appendChild(row);
+    if (A) for (const P of [A, B]) { const k = document.createElement("canvas"); k.width = k.height = 300; const kg = k.getContext("2d");
+      kg.drawImage(c, P.x - 120, P.y - 120, 240, 240, 0, 0, 300, 300); kg.strokeStyle = "#0a0"; kg.lineWidth = 2; kg.beginPath(); kg.arc(150, 150, 22, 0, 7); kg.stroke(); row.appendChild(k); }
+    document.getElementById("g").appendChild(box);
+  }
+  document.title = "DONE";
+})().catch((e) => (document.title = "ERR " + e));
+</script></body></html>

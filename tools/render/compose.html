@@ -1,0 +1,57 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>compose</title>
+<style>html,body{margin:0;background:transparent}canvas{display:block}</style></head>
+<body><canvas id="c" width="1254" height="1254"></canvas>
+<script>
+/* Builds a "count with cards" picture from the matching TAPE picture, so the cards sit exactly on the maker's
+   measuring line: the first card starts at the tape's red start dot, the row ends at the red end dot.
+   The card itself is the real card from the AI intro picture. ?base=tee-length-tape&dir=down&out=... */
+const P = new URLSearchParams(location.search), BASE = P.get("base") || "tee-length-tape", DIR = P.get("dir") || "down";
+const load = (src) => new Promise((ok, bad) => { const i = new Image(); i.onload = () => ok(i); i.onerror = bad; i.src = src; });
+(async () => {
+  const [base, intro] = await Promise.all([load(`../../assets/finder/${BASE}.png`), load("../../assets/finder/tee-intro.png")]);
+  const c = document.getElementById("c"), g = c.getContext("2d"), W = c.width, H = c.height;
+  g.drawImage(base, 0, 0, W, H);
+  const px = g.getImageData(0, 0, W, H).data, at = (x, y) => (y * W + x) * 4;
+  /* red dots: the two measuring points */
+  const reds = [];
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const i = at(x, y); if (px[i] > 200 && px[i + 1] < 70 && px[i + 2] < 70 && px[i + 3] > 200) reds.push([x, y]); }
+  const blobs = []; reds.forEach(([x, y]) => { let b = blobs.find((b) => Math.hypot(b.x - x, b.y - y) < 30); if (!b) blobs.push(b = { x, y, n: 0, sx: 0, sy: 0 }); b.sx += x; b.sy += y; b.n++; b.x = b.sx / b.n; b.y = b.sy / b.n; });
+  const dots = blobs.filter((b) => b.n > 30).sort((a, b) => (DIR === "down" ? a.y - b.y : a.x - b.x));
+  const A = dots[0], B = dots[dots.length - 1];
+  /* yellow tape pixels: wipe the tape and its case, then restore the fabric under it from the neighbouring columns */
+  const isTape = (i) => px[i] > 170 && px[i + 1] > 140 && px[i + 2] < 90 && px[i + 3] > 200;
+  let minX = W, maxX = 0; for (let y = Math.round(A.y); y < B.y; y++) for (let x = 0; x < W; x++) if (isTape(at(x, y))) { minX = Math.min(minX, x); maxX = Math.max(maxX, x); }
+  /* the tape case below the hem sits on the transparent background: clear everything below the hem around the tape */
+  g.clearRect(minX - 140, B.y + 14, (maxX - minX) + 280, H);
+  /* cover the tape with the T-shirt fabric next to it, so the gaps between cards show fabric, not tape */
+  const pad = 6, tw = maxX - minX + pad * 2, src = DIR === "down" ? [minX - pad - tw - 10, 0] : [0, 0];
+  if (DIR === "down") g.drawImage(c, src[0], A.y - 8, tw, B.y - A.y + 8, minX - pad, A.y - 8, tw, B.y - A.y + 8);
+  /* the real card from the intro picture */
+  const ic = document.createElement("canvas"); ic.width = W; ic.height = H; const ig = ic.getContext("2d"); ig.drawImage(intro, 0, 0, W, H);
+  const ip = ig.getImageData(0, 0, W, H).data; let cx0 = W, cy0 = H, cx1 = 0, cy1 = 0;
+  for (let y = 300; y < 650; y++) for (let x = 400; x < 850; x++) { const i = (y * W + x) * 4; if (ip[i + 2] > 60 && ip[i] < 40 && ip[i + 1] < 50) { cx0 = Math.min(cx0, x); cy0 = Math.min(cy0, y); cx1 = Math.max(cx1, x); cy1 = Math.max(cy1, y); } }
+  const card = document.createElement("canvas"); card.width = cx1 - cx0 + 1; card.height = cy1 - cy0 + 1;
+  card.getContext("2d").drawImage(ic, cx0, cy0, card.width, card.height, 0, 0, card.width, card.height);
+  /* card size: the real ratio of a card to the measured length (a T-shirt length is about 74 cm, a card 8.56 cm) */
+  const L = Math.hypot(B.x - A.x, B.y - A.y), cardsAlong = +(P.get("cards") || 8.65), cl = L / cardsAlong, cw = cl * 53.98 / 85.6;
+  const n = Math.ceil(cardsAlong), ux = (B.x - A.x) / L, uy = (B.y - A.y) / L, ang = Math.atan2(uy, ux);
+  for (let k = 0; k < n; k++) {
+    const mx = A.x + ux * (k * cl + cl / 2), my = A.y + uy * (k * cl + cl / 2);
+    g.save(); g.translate(mx, my); g.rotate(ang);
+    g.shadowColor = "rgba(0,0,0,.35)"; g.shadowBlur = 6; g.shadowOffsetX = 2; g.shadowOffsetY = 3;
+    g.beginPath(); g.roundRect(-cl / 2 + 2, -cw / 2, cl - 4, cw, cw * 0.08); g.fill(); g.clip(); g.shadowColor = "transparent";
+    g.drawImage(card, -cl / 2 + 2, -cw / 2, cl - 4, cw); g.restore();
+    /* number in a white circle, upright */
+    const r = cw * 0.2; let nx = mx + (DIR === "down" ? 0 : -cl * 0.18), ny = my + (DIR === "down" ? cl * 0.12 : cw * 0.12);
+    /* keep the number clear of the red end dot */
+    if (Math.hypot(nx - B.x, ny - B.y) < r + 16) { if (DIR === "down") ny = B.y - (r + 18); else nx = B.x - (r + 18); }
+    g.save(); g.translate(nx, ny);
+    g.fillStyle = "#fff"; g.beginPath(); g.arc(0, 0, r, 0, 7); g.fill();
+    g.fillStyle = "#111"; g.font = `800 ${r * 1.3}px Arial`; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(String(k + 1), 0, r * 0.08); g.restore();
+  }
+  /* the two red dots on top */
+  [A, B].forEach((d) => { g.fillStyle = "#e01b1b"; g.beginPath(); g.arc(d.x, d.y, 9, 0, 7); g.fill(); });
+  document.title = JSON.stringify({ A: [Math.round(A.x), Math.round(A.y)], B: [Math.round(B.x), Math.round(B.y)], tapeX: [minX, maxX], card: [card.width, card.height], cl: Math.round(cl), cw: Math.round(cw), n });
+})().catch((e) => (document.title = "ERR " + e));
+</script></body></html>

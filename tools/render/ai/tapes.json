@@ -1,0 +1,108 @@
+[
+ {
+  "name": "tee-shoulder-tape",
+  "ref": "https://tempfile.redpandaai.co/kieai/11729555/images/product-gallery/finder-tee-ref.jpg",
+  "prompt": "Keep the exact same blank heather-grey T-shirt from the reference image: same flat-lay top-down view, same shape, size, colour, texture and details, no print, no logo. Remove the bank card. Add a real yellow retractable tape measure lying perfectly straight and horizontal across the top of the shoulders, from the left shoulder seam (the top point where the left sleeve is sewn on) to the right shoulder seam (the top point where the right sleeve is sewn on). A small bright red dot sits exactly on each of those two points. The black-and-yellow tape case lies on the empty background just right of the right sleeve, not touching the T-shirt. Clear black centimetre tick marks and numbers. Soft realistic shadow under the tape. Photorealistic. Real transparent background (alpha channel): do NOT draw any checkerboard or grid pattern, nothing else in the image."
+ },
+ {
+  "name": "shirt-chest-tape",
+  "ref": "https://tempfile.redpandaai.co/kieai/11729555/images/product-gallery/fvf-shirt-ref.jpg",
+  "prompt": "Keep the exact same blank white long-sleeve dress shirt from the reference image: same flat-lay top-down view, same shape, size, colour, texture and details, no print, no logo. Remove the bank card. Add a real yellow retractable tape measure lying perfectly straight and horizontal, straight across the chest just below the armpits, from the left armpit seam to the right armpit seam, over the buttoned front. The metal end hook sits exactly at the start point. The black-and-yellow tape case lies flat on the empty background just past the right end point, outside the garment, not touching the garment. Clear black centimetre tick marks and numbers on the tape. Two small bright red dots mark the exact start point and the exact end point. Soft realistic shadow under the tape. Photorealistic. Transparent background, nothing else in the image."
+ },
+ {
+  "name": "shirt-shoulder-tape",
+  "ref": "https://tempfile.redpandaai.co/kieai/11729555/images/product-gallery/fvf-shirt-ref.jpg",
+  "prompt": "Keep the exact same blank white long-sleeve dress shirt from the reference image: same flat-lay top-down view, same shape, size, colour, texture and details, no print, no logo. Remove the bank card. Add a real yellow retractable tape measure lying perfectly straight and horizontal, straight across the top of the shoulders, from the left shoulder seam point (the top point where the sleeve is sewn on) to the right shoulder seam point. The metal end hook sits exactly at the start point. The black-and-yellow tape case lies flat on the empty background just past the right end point, outside the garment, not touching the garment. Clear black centimetre tick marks and numbers on the tape. Two small bright red dots mark the exact start point and the exact end point. Soft realistic shadow under the tape. Photorealistic. Transparent background, nothing else in the image."
+ },
+ {
+  "name": "shirt-sleeve-tape",
+  "ref": "https://tempfile.redpandaai.co/kieai/11729555/images/product-gallery/fvf-shirt-ref.jpg",
+  "prompt": "Keep the exact same blank white long-sleeve dress shirt from the reference image: same flat-lay top-down view, same shape, size, colour, texture and details, no print, no logo. Remove the bank card. Add a real yellow retractable tape measure lying perfectly straight and following the right sleeve, from the right shoulder seam point (the top point where the sleeve is sewn on) straight along the outer edge of the right sleeve to the very end of the cuff. The metal end hook sits exactly at the start point. The black-and-yellow tape case lies flat on the empty background just past the end of the cuff, not touching the garment. Clear black centimetre tick marks and numbers on the tape. Two small bright red dots mark the exact start point and the exact end point. Soft realistic shadow under the tape. Photorealistic. Transparent background, nothing else in the image."
+ },
+ {
+  "name": "shirt-length-tape",
+  "ref": "https://tempfile.redpandaai.co/kieai/11729555/images/product-gallery/fvf-shirt-ref.jpg",
+  "prompt": "Keep the exact same blank white long-sleeve dress shirt from the reference image: same flat-lay top-down view, same shape, size, colour, texture and details, no print, no logo. Remove the bank card. Turn it over: show the BACK of the same garment (back side up, collar seen from behind, no buttons or front pockets visible), same flat-lay view and size. Add a real yellow retractable tape measure lying perfectly straight and vertical, straight down the centre of the back, from the seam where the collar meets the back of the shirt to the bottom of the hem. The metal end hook sits exactly at the start point. The black-and-yellow tape case lies flat on the empty background just below the bottom hem, not touching the garment. Clear black centimetre tick marks and numbers on the tape. Two small bright red dots mark the exact start point and the exact end point. Soft realistic shadow under the tape. Photorealistic. Transparent background, nothing else in the image."
+ },
+ {
+  "name": "jacket-chest-tape",
+  "ref": "https://tempfile.redpandaai.co/kieai/11729555/images/product-gallery/fvf-jacket-ref.jpg",
+  "prompt": "Keep the exact same blank charcoal-grey suit jacket from the reference image: same flat-lay top-down view, same shape, size, colour, texture and details, no print, no logo. Remove the bank card. Add a real yellow retractable tape measure lying perfectly straight and horizontal, straight across the chest at armpit level, from the left armpit seam to the right armpit seam, over the buttoned front. The metal end hook sits exactly at the start point. The black-and-yellow tape case lies flat on the empty background just past the right end point, outside the garment, not touching the garment. Clear black centimetre tick marks and numbers on the tape. Two small bright red dots mark the exact start point and the exact end point. Soft realistic shadow under the tape. Photorealistic. Transparent background, nothing else in the image."
+ },
+ {
+  "name": "jacket-shoulder-tape",
+  "ref": "https://tempfile.redpandaai.co/kieai/11729555/images/product-gallery/fvf-jacket-ref.jpg",
+  "prompt": "Keep the exact same blank charcoal-grey suit jacket from the reference image: same flat-lay top-down view, same shape, size, colour, texture and details, no print, no logo. Remove the bank card. Add a real yellow retractable tape measure lying perfectly straight and horizontal, straight across the top of the shoulders, from the left shoulder point (where the sleeve is sewn on) to the right shoulder point. The metal end hook sits exactly at the start point. The black-and-yellow tape case lies flat on the empty background just past the right end point, outside the garment, not touching the garment. Clear black centimetre tick marks and numbers on the tape. Two small bright red dots mark the exact start point and the exact end point. Soft realistic shadow under the tape. Photorealistic. Transparent background, nothing else in the image."
+ },
+ {
+  "name": "jacket-sleeve-tape",
+  "ref": "https://tempfile.redpandaai.co/kieai/11729555/images/product-gallery/fvf-jacket-ref.jpg",
+  "prompt": "Keep the exact same blank charcoal-grey suit jacket from the reference image: same flat-lay top-down view, same shape, size, colour, texture and details, no print, no logo. Remove the bank card. Add a real yellow retractable tape measure lying perfectly straight and following the right sleeve, from the right shoulder point (where the sleeve is sewn on) straight along the outer edge of the right sleeve to the end of the cuff. The metal end hook sits exactly at the start point. The black-and-yellow tape case lies flat on the empty background just past the end of the cuff, not touching the garment. Clear black centimetre tick marks and numbers on the tape. Two small bright red dots mark the exact start point and the exact end point. Soft realistic shadow under the tape. Photorealistic. Transparent background, nothing else in the image."
+ },
+ {
+  "name": "jacket-length-tape",
+  "ref": "https://tempfile.redpandaai.co/kieai/11729555/images/product-gallery/fvf-jacket-ref.jpg",
+  "prompt": "Keep the exact same blank charcoal-grey suit jacket from the reference image: same flat-lay top-down view, same shape, size, colour, texture and details, no print, no logo. Remove the bank card. Turn it over: show the BACK of the same garment (back side up, collar seen from behind, no buttons or front pockets visible), same flat-lay view and size. Add a real yellow retractable tape measure lying perfectly straight and vertical, straight down the centre of the back, from the seam just below the collar to the bottom of the hem. The metal end hook sits exactly at the start point. The black-and-yellow tape case lies flat on the empty background just below the bottom hem, not touching the garment. Clear black centimetre tick marks and numbers on the tape. Two small bright red dots mark the exact start point and the exact end point. Soft realistic shadow under the tape. Photorealistic. Transparent background, nothing else in the image."
+ },
+ {
+  "name": "vest-chest-tape",
+  "ref": "https://tempfile.redpandaai.co/kieai/11729555/images/product-gallery/fvf-vest-ref.jpg",
+  "prompt": "Keep the exact same blank black mesh gym tank top from the reference image: same flat-lay top-down view, same shape, size, colour, texture and details, no print, no logo. Remove the bank card. Add a real yellow retractable tape measure lying perfectly straight and horizontal, straight across the chest just below the armholes, from the left side seam to the right side seam. The metal end hook sits exactly at the start point. The black-and-yellow tape case lies flat on the empty background just past the right end point, outside the garment, not touching the garment. Clear black centimetre tick marks and numbers on the tape. Two small bright red dots mark the exact start point and the exact end point. Soft realistic shadow under the tape. Photorealistic. Transparent background, nothing else in the image."
+ },
+ {
+  "name": "vest-length-tape",
+  "ref": "https://tempfile.redpandaai.co/kieai/11729555/images/product-gallery/fvf-vest-ref.jpg",
+  "prompt": "Keep the exact same blank black mesh gym tank top from the reference image: same flat-lay top-down view, same shape, size, colour, texture and details, no print, no logo. Remove the bank card. Add a real yellow retractable tape measure lying perfectly straight and vertical, from the top of the right shoulder strap straight down to the bottom hem. The metal end hook sits exactly at the start point. The black-and-yellow tape case lies flat on the empty background just below the bottom hem, not touching the garment. Clear black centimetre tick marks and numbers on the tape. Two small bright red dots mark the exact start point and the exact end point. Soft realistic shadow under the tape. Photorealistic. Transparent background, nothing else in the image."
+ },
+ {
+  "name": "waistcoat-chest-tape",
+  "ref": "https://tempfile.redpandaai.co/kieai/11729555/images/product-gallery/fvf-waistcoat-ref.jpg",
+  "prompt": "Keep the exact same blank charcoal-grey waistcoat from the reference image: same flat-lay top-down view, same shape, size, colour, texture and details, no print, no logo. Remove the bank card. Add a real yellow retractable tape measure lying perfectly straight and horizontal, straight across the chest just below the armholes, from the left side edge to the right side edge, over the buttoned front. The metal end hook sits exactly at the start point. The black-and-yellow tape case lies flat on the empty background just past the right end point, outside the garment, not touching the garment. Clear black centimetre tick marks and numbers on the tape. Two small bright red dots mark the exact start point and the exact end point. Soft realistic shadow under the tape. Photorealistic. Transparent background, nothing else in the image."
+ },
+ {
+  "name": "waistcoat-length-tape",
+  "ref": "https://tempfile.redpandaai.co/kieai/11729555/images/product-gallery/fvf-waistcoat-ref.jpg",
+  "prompt": "Keep the exact same blank charcoal-grey waistcoat from the reference image: same flat-lay top-down view, same shape, size, colour, texture and details, no print, no logo. Remove the bank card. Add a real yellow retractable tape measure lying perfectly straight and vertical, from the top of the right shoulder straight down to the bottom pointed tip at the front on the same side. The metal end hook sits exactly at the start point. The black-and-yellow tape case lies flat on the empty background just below the bottom tip, not touching the garment. Clear black centimetre tick marks and numbers on the tape. Two small bright red dots mark the exact start point and the exact end point. Soft realistic shadow under the tape. Photorealistic. Transparent background, nothing else in the image."
+ },
+ {
+  "name": "trousers-waist-tape",
+  "ref": "https://tempfile.redpandaai.co/kieai/11729555/images/product-gallery/fvf-trousers-ref.jpg",
+  "prompt": "Keep the exact same blank dark-grey formal trousers from the reference image: same flat-lay top-down view, same shape, size, colour, texture and details, no print, no logo. Remove the bank card. Add a real yellow retractable tape measure lying perfectly straight and horizontal, straight across the top edge of the waistband, from the left side to the right side. The metal end hook sits exactly at the start point. The black-and-yellow tape case lies flat on the empty background just past the right end point, outside the garment, not touching the garment. Clear black centimetre tick marks and numbers on the tape. Two small bright red dots mark the exact start point and the exact end point. Soft realistic shadow under the tape. Photorealistic. Transparent background, nothing else in the image."
+ },
+ {
+  "name": "trousers-hip-tape",
+  "ref": "https://tempfile.redpandaai.co/kieai/11729555/images/product-gallery/fvf-trousers-ref.jpg",
+  "prompt": "Keep the exact same blank dark-grey formal trousers from the reference image: same flat-lay top-down view, same shape, size, colour, texture and details, no print, no logo. Remove the bank card. Add a real yellow retractable tape measure lying perfectly straight and horizontal, straight across the widest part of the seat, about 18 cm below the waistband, from the left side edge to the right side edge. The metal end hook sits exactly at the start point. The black-and-yellow tape case lies flat on the empty background just past the right end point, outside the garment, not touching the garment. Clear black centimetre tick marks and numbers on the tape. Two small bright red dots mark the exact start point and the exact end point. Soft realistic shadow under the tape. Photorealistic. Transparent background, nothing else in the image."
+ },
+ {
+  "name": "trousers-thigh-tape",
+  "ref": "https://tempfile.redpandaai.co/kieai/11729555/images/product-gallery/fvf-trousers-ref.jpg",
+  "prompt": "Keep the exact same blank dark-grey formal trousers from the reference image: same flat-lay top-down view, same shape, size, colour, texture and details, no print, no logo. Remove the bank card. Add a real yellow retractable tape measure lying perfectly straight and horizontal, straight across the left leg just below the crotch, from the outer edge of the left leg to the inner edge of the left leg. The metal end hook sits exactly at the start point. The black-and-yellow tape case lies flat on the empty background just past the left end point, outside the garment on the left, not touching the garment. Clear black centimetre tick marks and numbers on the tape. Two small bright red dots mark the exact start point and the exact end point. Soft realistic shadow under the tape. Photorealistic. Transparent background, nothing else in the image."
+ },
+ {
+  "name": "trousers-length-tape",
+  "ref": "https://tempfile.redpandaai.co/kieai/11729555/images/product-gallery/fvf-trousers-ref.jpg",
+  "prompt": "Keep the exact same blank dark-grey formal trousers from the reference image: same flat-lay top-down view, same shape, size, colour, texture and details, no print, no logo. Remove the bank card. Add a real yellow retractable tape measure lying perfectly straight and vertical, straight down the outside edge of the right leg, from the top of the waistband to the bottom of the leg hem. The metal end hook sits exactly at the start point. The black-and-yellow tape case lies flat on the empty background just below the bottom hem, not touching the garment. Clear black centimetre tick marks and numbers on the tape. Two small bright red dots mark the exact start point and the exact end point. Soft realistic shadow under the tape. Photorealistic. Transparent background, nothing else in the image."
+ },
+ {
+  "name": "joggers-waist-tape",
+  "ref": "https://tempfile.redpandaai.co/kieai/11729555/images/product-gallery/fvf-joggers-ref.jpg",
+  "prompt": "Keep the exact same blank heather-grey joggers from the reference image: same flat-lay top-down view, same shape, size, colour and details, no logo. Remove the bank card. Add a real yellow retractable tape measure lying flat ON the joggers, exactly on top of the elastic waistband, horizontal and perfectly straight. It starts exactly at the left side edge of the waistband and the red start dot sits exactly on that left edge. It ends exactly at the right side edge of the waistband and the red end dot sits exactly on that right edge. Only a few centimetres of tape continue past the right edge to the black-and-yellow tape case, which lies on the empty background just right of the joggers, not touching them. Clear black centimetre tick marks and numbers. Soft realistic shadow under the tape. Photorealistic. Real transparent background (alpha channel), nothing else in the image."
+ },
+ {
+  "name": "joggers-hip-tape",
+  "ref": "https://tempfile.redpandaai.co/kieai/11729555/images/product-gallery/fvf-joggers-ref.jpg",
+  "prompt": "Keep the exact same blank heather-grey joggers from the reference image: same flat-lay top-down view, same shape, size, colour, texture and details, no print, no logo. Remove the bank card. Add a real yellow retractable tape measure lying perfectly straight and horizontal, straight across the widest part of the seat, about 18 cm below the waistband, from the left side edge to the right side edge. The metal end hook sits exactly at the start point. The black-and-yellow tape case lies flat on the empty background just past the right end point, outside the garment, not touching the garment. Clear black centimetre tick marks and numbers on the tape. Two small bright red dots mark the exact start point and the exact end point. Soft realistic shadow under the tape. Photorealistic. Transparent background, nothing else in the image."
+ },
+ {
+  "name": "joggers-length-tape",
+  "ref": "https://tempfile.redpandaai.co/kieai/11729555/images/product-gallery/fvf-joggers-ref.jpg",
+  "prompt": "Same heather-grey joggers as the reference image, same flat-lay view from above, same size and details, no logo. Take away the bank card. Place a yellow tape measure in a straight vertical line along the outside edge of the right leg: it starts at the top of the waistband and ends at the bottom of the ankle cuff. A small red dot marks each end. The tape measure case lies on the empty background just below the cuff. Clear centimetre markings on the tape. Photo-realistic product photo. Transparent background, nothing else."
+ },
+ {
+  "name": "foot-tape",
+  "ref": "https://tempfile.redpandaai.co/kieai/11729555/images/product-gallery/fvf-foot-ref.jpg",
+  "prompt": "Same scene as the reference photo, same camera, same white wall, skirting board, wooden floor, white paper and pen, but the paper is now pushed tight against the bottom of the wall and the foot has stepped off (no foot, no leg). A short straight pencil line is drawn across the paper where the tip of the longest toe was, about 26 cm from the wall. A real yellow tape measure lies perfectly straight on the paper, from the wall (its metal hook pressed against the bottom of the wall) to the pencil line, with clear centimetre markings. Two small bright red dots mark the start at the wall and the end at the pencil line. Realistic photo, nothing else.",
+  "opaque": true
+ }
+]
