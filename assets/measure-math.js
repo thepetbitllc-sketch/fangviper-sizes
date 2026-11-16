@@ -1,4 +1,4 @@
-/* Fangviper card measuring: the maths. A bank card (ISO ID-1, 85.60 x 53.98 mm) or a sheet of paper in the photo
+/* Drevaunt card measuring: the maths. A bank card (ISO ID-1, 85.60 x 53.98 mm) or a sheet of paper in the photo
    gives the scale. The 4 tapped corners give a homography from the photo to the flat floor, so a photo taken at a
    slight angle is still measured correctly, as long as everything measured lies flat on the same floor.
    Works in the browser (window.FVM) and in Node (module.exports) for tests. */

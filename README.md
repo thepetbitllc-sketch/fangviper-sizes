@@ -1,4 +1,4 @@
-# Fang Viper size guide
+# Drevaunt size guide
 
 Static size guide for fangviper.com, served by GitHub Pages at https://size.fangviper.com/.
 

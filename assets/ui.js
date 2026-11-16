@@ -1,4 +1,4 @@
-/* Fangviper size chart: products, sizes, units, specs, table, steps, fit finder. Exposes window.FV for the 3D viewer. */
+/* Drevaunt size chart: products, sizes, units, specs, table, steps, fit finder. Exposes window.FV for the 3D viewer. */
 (function () {
   /* ---------- data: add new products here (values from the supplier size guides) ---------- */
   var PRODUCTS = {

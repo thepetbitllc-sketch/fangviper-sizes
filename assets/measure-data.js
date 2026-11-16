@@ -1,4 +1,4 @@
-/* Fangviper card measuring: every product's own maker chart (garment laid flat, cm), only sizes we sell.
+/* Drevaunt card measuring: every product's own maker chart (garment laid flat, cm), only sizes we sell.
    Same numbers as the store's size cards (product-images/shirt-sizes, size-audit, cards). Printed tees: Printful chart.
    measures[].flat2 = the chart is all the way around, so the flat width tapped on the photo is doubled.
    measures[].primary = decides the size. Others are only compared in the result. */

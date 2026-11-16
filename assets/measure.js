@@ -1,4 +1,4 @@
-/* Fangviper "Find your size": one question per screen. Lay something that fits you well flat, measure what the
+/* Drevaunt "Find your size": one question per screen. Lay something that fits you well flat, measure what the
    picture shows (with a bank card, cm or inches), type it in, and get the size closest to ALL your measurements.
    (The older photo version is kept in measure-photo.js, not loaded.) */
 (function () {

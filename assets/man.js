@@ -1,4 +1,4 @@
-/* Fangviper fit model: a realistic man (MakeHuman CC0 body, see man.json "about") that every garment is fitted on.
+/* Drevaunt fit model: a realistic man (MakeHuman CC0 body, see man.json "about") that every garment is fitted on.
    The body is scaled per size so the garment built round him measures exactly the size-chart numbers. */
 import * as THREE from "three";
 

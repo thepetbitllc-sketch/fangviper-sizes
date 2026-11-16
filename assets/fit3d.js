@@ -1,4 +1,4 @@
-/* Fangviper size chart: 3D models (three.js). Every garment is worn by a realistic man (MakeHuman CC0 body, assets/man.js)
+/* Drevaunt size chart: 3D models (three.js). Every garment is worn by a realistic man (MakeHuman CC0 body, assets/man.js)
    who is scaled per size so the garment built round him measures exactly the real cm specs of the chosen product and size. */
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";

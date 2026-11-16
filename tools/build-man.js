@@ -176,7 +176,7 @@ const eye16 = new Int16Array(eyes.pos.length);
 for (let i = 0; i < eyes.pos.length; i++) eye16[i] = Math.round((eyes.pos[i] + (i % 3 === 1 ? dy : 0)) * Q);
 const b64 = (ta) => Buffer.from(ta.buffer, ta.byteOffset, ta.byteLength).toString("base64");
 const out = {
-  about: "FangViper fit model. Body: MakeHuman base mesh hm08 with male macro targets, CC0 1.0 (makehumancommunity.org). Arms re-posed for the size guide.",
+  about: "Drevaunt fit model. Body: MakeHuman base mesh hm08 with male macro targets, CC0 1.0 (makehumancommunity.org). Arms re-posed for the size guide.",
   q: Q,
   pos: b64(pos16), idx: b64(new Uint16Array(tris)), arm: b64(arm), hair: b64(hair),
   eyes: { pos: b64(eye16), idx: b64(new Uint16Array(eyes.idx)), centers: [sh(J["l-eye"]), sh(J["r-eye"])] },
